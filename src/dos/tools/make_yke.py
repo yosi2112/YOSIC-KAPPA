@@ -5,8 +5,8 @@ import struct
 
 
 def encode(payload, entry=0):
-    if not 4 <= len(payload) <= 65528 or len(payload) % 4:
-        raise ValueError('Payload must contain 4..65528 bytes, aligned to 4 bytes')
+    if not 4 <= len(payload) <= 65520 or len(payload) % 4:
+        raise ValueError('Payload must contain 4..65520 bytes, aligned to 4 bytes')
     if entry < 0 or entry >= len(payload) or entry % 4:
         raise ValueError('Entry must be aligned and inside the payload')
     checksum = sum(word[0] for word in struct.iter_unpack('<I', payload)) & 0xffffffff

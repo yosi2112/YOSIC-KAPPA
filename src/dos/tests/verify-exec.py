@@ -44,7 +44,7 @@ def main():
 
     # Largest accepted payload; its trailing words remain available as code/data.
     raw = base()
-    maximum = payload + bytes(65528 - len(payload))
+    maximum = payload + bytes(65520 - len(payload))
     add_file(raw, 0, 'MAX.YKE', encode(maximum))
     result, _ = run('yke-maximum', 'MAX\n', raw)
     assert 'HELLO YKE\n' in result.stdout, result.stdout

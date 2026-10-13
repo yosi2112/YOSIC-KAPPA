@@ -123,7 +123,7 @@ exec_resolve:
         Call core_le32
         ADI SP,SP,4
         SRM R0,[RZR+4c04h]
-        ; Check signed bit before comparisons; file size is 28..65552.
+        ; Check signed bit before comparisons; file size is 28..65544.
         Const R1,80000000h
         ANL R2,R0,R1
         SRZ R2
@@ -132,7 +132,7 @@ exec_resolve:
         ANL R2,R2,R1
         SRZ R2
         JMP exec_format
-        Const R2,65552
+        Const R2,65544
         SUB R2,R2,R0
         ANL R2,R2,R1
         SRZ R2
@@ -273,7 +273,7 @@ exec_checksum:
         SRZ R0
         JMP exec_format
         Const R9,80000h
-        Const R4,65528
+        Const R4,65520
 exec_zero:
         SRM RZR,[R9]
         ADI R9,R9,4
@@ -304,11 +304,19 @@ exec_args:
         ADI R2,R2,1
         JMP exec_args
 exec_launch:
-        ; Application return gate uses R5=2; retain R0 as exit status.
+        ; Legacy exit at FFF8; syscall entry at FFF0 sets R5=2 itself.
         Const R1,80050000h
-        Const R9,2fff8h
+        Const R9,2fff4h
+        SRM R1,[R9]
+        Const R9,8fff4h
         SRM R1,[R9]
         Const R9,8fff8h
+        SRM R1,[R9]
+        Const R1,44af0002h
+        Const R9,8fff0h
+        SRM R1,[R9]
+        LRM R1,[R12+syscall_entry_jump-8000h]
+        Const R9,2fff8h
         SRM R1,[R9]
         ; Dynamic JMP from PC=FFFCh to the validated entry offset.
         ; Divide by four via core_div on a positive offset.
@@ -333,7 +341,7 @@ exec_launch:
         LRM R3,[R9]
         Const R4,0fff8h
         ADI R5,RZR,8
-        JMP 0fff8h
+        JMP 0fff4h
 exec_return_jump:
         DD 18000000h+(((exec_return-0fffch)/4)&1fffffh)
 exec_return:
@@ -383,3 +391,4 @@ exec_done:
         SRM R0,[R1]
         POP R6
         JMP return_sub
+        INCLUDE syscall.inc
