@@ -104,7 +104,7 @@ python -B src\dos\tests\verify-file.py
 
 ## 7. C++の品質確認と公開ソース確認
 
-VS18のx64開発環境で`chcp 65001`を実行した後、PowerShellから実行します。
+VSのx64開発環境で`chcp 65001`を実行した後、PowerShellから実行します。
 
 ```powershell
 .\src\tools\check-quality.ps1
