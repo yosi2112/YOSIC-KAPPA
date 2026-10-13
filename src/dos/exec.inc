@@ -8,6 +8,7 @@ ExecArg MACRO value
 
 exec_command:
         PSH R6
+        MediaLock
         SRM RZR,[RZR+4c30h]
         Const R0,13fe4h
         SRM RZR,[R0]
@@ -338,6 +339,7 @@ exec_launch:
         PSH R2
         Call file_reset
         POP R2
+        MediaUnlock
         Const SP,0f0000h
         Const R1,0f1000h
         Const R9,13ff0h
@@ -387,6 +389,7 @@ exec_error:
         Call core_error_message
         ADI SP,SP,4
 exec_done:
+        MediaUnlock
         LRM R0,[RZR+4c30h]
         Const R1,13f00h
         SRM R0,[R1]

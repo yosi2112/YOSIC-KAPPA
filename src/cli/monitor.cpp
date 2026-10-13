@@ -11,7 +11,7 @@ HardwareMonitor::HardwareMonitor(Debugger &debugger) : debugger_(debugger) {
             throw std::runtime_error("monitor output failed");
     };
     debugger_.output("YOSIC-KAPPA Hardware Monitor / Debugger\n"
-                     "SYMDEB command syntax. ? lists commands; G starts execution.\n"
+                     "CPU: SYMDEB syntax. Disks: AT/DT. ? lists commands; G starts execution.\n"
                      "Ctrl+Break returns to the monitor; Q exits.\n");
 }
 HardwareMonitor::~HardwareMonitor() {

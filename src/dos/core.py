@@ -147,6 +147,15 @@ def select(drive):
         return 15
     state = STATES + drive * 512
     write(SELECT, state)
+    generation = read(0xFE0120 + drive * 4)
+    if read(state + 40) != generation:
+        write(state + 40, generation)
+        write(state + 4, 0)
+        write(state + 36, 0)
+        write(state + 64, 92)
+        write(state + 68, 0)
+        write(FATDRIVE, -1)
+        write(DIRLBA, -1)
     if read(state + 4) != 0 and read(FATDRIVE) == drive:
         return 0
     status = block(0, SECTOR, drive, 0)
@@ -679,6 +688,7 @@ def error_message(status):
 
 
 def fs_command(command, args):
+    write(0xFE0114, 15)
     write(ERROR, 0)
     while read(args) == 32 or read(args) == 9:
         args += 4
@@ -702,6 +712,7 @@ def fs_command(command, args):
         else:
             puts("SYS 1:|2:|3:")
         newline()
+        write(0xFE0114, 0)
         return 0
     status = 87
     if command == 1:
@@ -726,6 +737,7 @@ def fs_command(command, args):
         error_message(status)
         write(FATDRIVE, -1)
         write(DIRLBA, -1)
+    write(0xFE0114, 0)
     return status
 
 

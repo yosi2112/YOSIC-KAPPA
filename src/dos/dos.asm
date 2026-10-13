@@ -228,5 +228,6 @@ long_line:
         JMP new_line
         INCLUDE core.inc
         INCLUDE chdir.inc
+        INCLUDE media.inc
         INCLUDE exec.inc
         END

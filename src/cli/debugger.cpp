@@ -283,6 +283,12 @@ bool Debugger::advance() {
 }
 void Debugger::command(std::string_view line) {
     try {
+        if (!awaiting_value() && device_command) {
+            if (const auto result = device_command(line)) {
+                emit(*result);
+                return;
+            }
+        }
         auto args = tokens(line);
         if (pending_register_) {
             const auto reg = *pending_register_;
@@ -316,6 +322,7 @@ void Debugger::command(std::string_view line) {
             emit("R [register [[=] value]]\nD/DB/DW/DD [range]\nE/EB/EW/ED address [list]\n"
                  "U [range]\nG [=address] [breakpoints]\nT/P [=address] [count]\n"
                  "BP[n] address [passcount]\nBC/BD/BE n|*\nBL\nQ\n"
+                 "AT [-R] drive filename\nAT\nDT drive|ALL\n"
                  "Hexadecimal values; address=segment:offset; range=start end or start L count.\n"
                  "Ctrl+Break pauses. Registers are R0..R15, SP, RZR, CS, DS, SS, ES, PC, F.\n");
         } else if (op == "Q") {

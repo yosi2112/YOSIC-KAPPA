@@ -529,6 +529,7 @@ core_if_end_44:
         LRM R0,[R12+core_literal_46-8000h]
         LRM R1,[R8-40]
         SRM R1,[R0]
+        Call core_media_refresh
         LRM R0,[R8-40]
         ADI R0,R0,4
         LRM R0,[R0]
@@ -4111,6 +4112,7 @@ core_return_336:
         POP R8
         JMP return_sub
 core_fs_command:
+        MediaLock
         PSH R8
         ADD R8,SP,RZR
         ADI SP,SP,-4
@@ -4441,6 +4443,7 @@ core_if_end_439:
         JMP core_return_384
         ADI R0,RZR,0
 core_return_384:
+        MediaUnlock
         ADD SP,R8,RZR
         POP R8
         JMP return_sub

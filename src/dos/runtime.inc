@@ -16,3 +16,13 @@ return_word:
         DD 18000000h+((returned-ret_slot)/4)
 returned:
         ENDM
+; Board media-lock bits protect complete guest filesystem operations.
+MediaLock MACRO
+        Const R7,0fe0114h
+        ADI R9,RZR,15
+        SRM R9,[R7]
+        ENDM
+MediaUnlock MACRO
+        Const R7,0fe0114h
+        SRM RZR,[R7]
+        ENDM

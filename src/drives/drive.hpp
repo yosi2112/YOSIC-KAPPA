@@ -8,6 +8,7 @@ struct Drive {
     bool motor = false, present = true, read_only = true, fault = false, double_sided = true;
     unsigned cylinder = 0, max_cylinder = 81;
     std::uint64_t motor_epoch = 0;
+    std::uint32_t media_generation = 0;
     bool ready() const { return disk && motor && present; }
     bool protected_media() const { return read_only || (disk && disk->protect); }
     void set_motor(bool on, std::uint64_t now) {

@@ -2,6 +2,7 @@
 #include "devices/fdc/fdc.hpp"
 #include <functional>
 #include <optional>
+#include <string>
 #include <string_view>
 namespace yosic {
 class DiskMounts {
@@ -19,5 +20,13 @@ class DiskMounts {
     void validate() const;
     void load(Fdc &fdc);
     void save(const Fdc &fdc);
+    std::optional<std::string> command(std::string_view text, Fdc &fdc);
+    void attach(Fdc &fdc, unsigned unit, const std::filesystem::path &source);
+    void detach(Fdc &fdc, unsigned unit);
+    std::string show(const Fdc &fdc, std::optional<unsigned> unit = {}) const;
+
+  private:
+    media::Bytes serialize(unsigned unit, const Fdc &fdc) const;
+    void save_unit(unsigned unit, Fdc &fdc);
 };
 } // namespace yosic

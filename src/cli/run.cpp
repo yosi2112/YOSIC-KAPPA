@@ -26,6 +26,8 @@ namespace {
 volatile std::sig_atomic_t interrupted = 0;
 volatile std::sig_atomic_t monitor_interrupted = 0;
 void interrupt_handler(int signal) {
+    // The MSVC CRT resets a signal handler after delivery; keep monitor breaks reusable.
+    std::signal(signal, interrupt_handler);
     if (signal == SIGBREAK)
         monitor_interrupted = 1;
     else
@@ -180,6 +182,11 @@ int run_cli(int argc, char *argv[]) {
             throw std::runtime_error("cannot read ROM");
         memory.load_rom(bytes);
         Debugger debugger(machine, memory, fdc, count);
+        debugger.device_command = [&](std::string_view text) {
+            if (debugger.running())
+                throw std::runtime_error("pause the guest before changing disk media");
+            return disks.command(text, fdc);
+        };
         std::unique_ptr<HardwareMonitor> hardware;
         if (monitor)
             hardware = std::make_unique<HardwareMonitor>(debugger);

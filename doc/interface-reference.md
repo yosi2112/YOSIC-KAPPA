@@ -53,10 +53,14 @@ FDCはフロッピーディスクコントローラです。DATAへコマンド�
 | `0x00FE0108` | SIGNALS | R | bit0 IRQ、bit1 DRQ、bit2はいずれかのhead loaded、bits4～7はdrive0～3 ready、bits8～11はindex。他は0。読出しで消えない |
 | `0x00FE010C` | BOARD_CONTROL | W | bit0 RESET（レベル）、bit1 TC（パルス）、bits4～7はmotor0～3、bit8は速度（0=500 kbps、1=250 kbps）。他ビットは未使用 |
 | `0x00FE0110` | DMA_ACK_DATA | R/W | DACK付き1バイト転送。読みは0拡張、書きは下位8ビット |
+| `0x00FE0114` | MEDIA_LOCK | 読書き32ビット | bits0〜3で各ドライブの媒体交換を禁止。その他のビットは0のみ |
+| `0x00FE0120`〜`0x00FE012C` | MEDIA_GENERATION[0〜3] | 読出し32ビット | 各ドライブの接続・交換・取り外しで増える世代番号。副作用なし |
 
 全レジスタへのCPUアクセス幅は32ビットです。SIGNALS、BOARD_CONTROL、DMA_ACK_DATAはKAPPA基板の追加機能です。
 BOARD_CONTROLは全値を書きます。TCだけを送る場合もmotorと速度を含めます。たとえばdrive0のmotorを回したままTCを送る値は`0x12`です。
 RESET=1の間はコマンドを受け付けません。RESET解除後はreadyの巡回確認を再開します。SPECIFYの値はRESETをまたいで保持します。
+
+MEDIA_LOCKとMEDIA_GENERATIONは基板の媒体管理用レジスタです。FDCのRESETでは変化しません。MEDIA_LOCKは、複数セクタにまたがるDOSの処理全体を保護します。世代番号は0から始まり、接続・交換・取り外しのたびに1増えます。FFFFFFFFに達したドライブの交換は拒否します。DOSは世代が変わるとキャッシュと現在位置を更新し、旧ハンドルを失効させます。
 
 MSRのビットは次のとおりです。
 

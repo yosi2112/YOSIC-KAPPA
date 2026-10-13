@@ -20,9 +20,15 @@ class Fdc {
     void control(std::uint32_t value);
     std::uint32_t signal_bits() const;
     Phase phase() const { return phase_; }
+    bool can_change_media(unsigned unit) const;
+    void change_media(unsigned unit, std::shared_ptr<media::Disk> disk, bool read_only,
+                      bool double_sided);
+    std::uint32_t media_locks() const { return media_locks_; }
+    void media_locks(std::uint32_t value);
 
   private:
     Clock &clock_;
+    std::uint32_t media_locks_ = 0;
     std::shared_ptr<int> life_ = std::make_shared<int>(0);
     Phase phase_ = Phase::idle;
     std::vector<std::uint8_t> command_;

@@ -66,6 +66,7 @@ YKEファイルはFAT12媒体へ配置してDOSから起動します。形式と
 | [syscall.inc](../src/dos/syscall.inc) | R1/JMPシステムコールの振分け、引数・復帰位置の確認 |
 | [file.inc](../src/dos/file.inc) | ハンドルの管理、OPEN/CLOSE/READ/WRITE、FAT12への反映 |
 | [api.inc](../src/dos/api.inc) | アプリ用の番号定数・定数設定・呼出しマクロ |
+| [media.inc](../src/dos/media.inc) | 媒体世代の確認、FAT・現在位置・ハンドルの更新 |
 | [chdir.inc](../src/dos/chdir.inc) | CHDIR、ドライブごとの現在位置、移動対象の保護 |
 | [core.inc](../src/dos/core.inc) | ファイルシステムと内蔵コマンドの正本アセンブリ |
 | [core.py](../src/dos/core.py) | ファイルシステム処理の整数Pythonソースモデル |
@@ -108,12 +109,14 @@ python -B src\dos\tests\verify-file.py
 ## 7. モニタ・デバッガの検証
 
 ```bat
-cmake --build out/build --target yosic-monitor-check
+cmake --build out/build --target yosic-monitor-check yosic-media-check
 out\build\yosic-monitor-check.exe
+out\build\yosic-media-check.exe
 python -B src\tools\tests\monitor-cli.py
+python -B src\tools\tests\monitor-media.py
 ```
 
-実CPU・バスを使い、SYMDEB形式の解析、レジスタ変更、バイト／16ビット／32ビットのメモリ操作、MMIOの非破壊読出し、逆アセンブル、T/P、ブレークポイントを確認します。検証実行ファイルは通常ビルドと配布対象には含めません。DOS検証は`--no-monitor`で実行します。`monitor-cli.py`は専用の実端末で、G/Tの連続入力、DOS入力、対象プロセスだけへのCtrl+Break、Qまでを確認し、GからDOSのプロンプトまでの実時間を`out/monitor-cli-result.txt`へ記録します。手動ではCLIの`-`からGで起動し、Ctrl+Breakで戻り、R/T/G/Qと入力の振分けを確認します。
+実CPU・バスを使い、SYMDEB形式の解析、レジスタ変更、バイト／16ビット／32ビットのメモリ操作、MMIOの非破壊読出し、逆アセンブル、T/P、ブレークポイントを確認します。検証実行ファイルは通常ビルドと配布対象には含めません。DOS検証は`--no-monitor`で実行します。`monitor-cli.py`は専用の実端末で、G/Tの連続入力、DOS入力、対象プロセスだけへのCtrl+Break、Qまでを確認し、GからDOSのプロンプトまでの実時間を`out/monitor-cli-result.txt`へ記録します。`yosic-media-check`はAT/DTの形式・引用符・保存・失敗時の維持・複数媒体D88と交換ロックを、`monitor-media.py`は実DOSでFAT・現在位置・ハンドル失効とロックを確認します。媒体・ログはout以下に生成します。手動ではCLIの`-`からGで起動し、Ctrl+Breakで戻り、R/T/G/Qと入力の振分けを確認します。
 
 ## 8. C++の品質確認と公開ソース確認
 

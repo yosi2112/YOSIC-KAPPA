@@ -24,6 +24,7 @@ class Debugger {
     bool advance();
     std::string snapshot() const;
     std::function<void(const std::string &)> output;
+    std::function<std::optional<std::string>(std::string_view)> device_command;
 
   private:
     struct Breakpoint {

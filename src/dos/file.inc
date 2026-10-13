@@ -1,5 +1,5 @@
 ; Handle API: eight application-local slots at B0000h, 128 bytes per slot.
-; Slot: active/mode/drive/dirLBA/dirOffset/size/position/firstCluster/name[11].
+; Slot: active/mode/drive/dirLBA/dirOffset/size/position/firstCluster/name[11]/generation.
 ; Scratch 4F00h..4F7Fh; sector COPYBUF, chain SRCCHAIN. Writes are synchronous.
 FileField MACRO offset
         LRM R0,[R13+offset]
@@ -325,6 +325,9 @@ file_slot_scan:
         LRM R0,[R8]
         SNZ R0
         JMP file_slot_found
+        Call file_slot_current
+        SNZ R0
+        JMP file_slot_found
         ADI R8,R8,128
         ADI R9,R9,1
         ADI R0,R9,-9
@@ -447,6 +450,13 @@ file_open_ready:
         LRM R0,[R13]
         ADI R1,RZR,1
         SRM R1,[R0]
+        LRM R1,[R13+8]
+        ADD R1,R1,R1
+        ADD R1,R1,R1
+        Const R7,0fe0120h
+        ADD R7,R7,R1
+        LRM R1,[R7]
+        SRM R1,[R0+76]
         ADI R0,R0,32
         PSH R0
         FileField 36
@@ -501,6 +511,9 @@ file_find:
         LRM R0,[R8]
         SNZ R0
         JMP file_invalid
+        Call file_slot_current
+        SNZ R0
+        JMP file_invalid
         SRM R8,[R13]
         ADI R8,R8,4
         ADI R9,R13,4
@@ -538,6 +551,9 @@ file_duplicate:
         ADI R9,RZR,8
 file_duplicate_loop:
         LRM R0,[R8]
+        SNZ R0
+        JMP file_duplicate_next
+        Call file_slot_current
         SNZ R0
         JMP file_duplicate_next
         LRM R0,[R8+8]
