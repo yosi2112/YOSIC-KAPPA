@@ -5,7 +5,7 @@
 
 ## ビルドと起動
 
-Visual Studio 18のx64 Developer Command Promptで、リポジトリのルートから実行します。C++20、CMake、Ninjaが必要です。
+Visual Studioのx64 Developer Command Promptで、リポジトリのルートから実行します。C++20、CMake、Ninjaが必要です。
 
 ```bat
 chcp 65001

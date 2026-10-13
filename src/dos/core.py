@@ -1,4 +1,4 @@
-"""Eight-command DOS. Integer Python is compiled to native guest instructions."""
+"""Nine-command DOS source model; core.inc/chdir.inc are canonical native code."""
 CONSOLE = 0xFE0008
 DRIVE = 0x13FF0
 FATDRIVE = 0x13FF4
@@ -602,6 +602,48 @@ def rmdir_command(args):
     return fatflush()
 
 
+def chdir_command(args):
+    count = tokens(args)
+    if count == 0:
+        drive = read(DRIVE)
+    elif count == 1:
+        text = read(TOKENS)
+        if read(text) == 0 or read(text) == 47:
+            return 87
+        if read(text + 4) == 58 and read(text + 8) == 0:
+            drive = read(text) - 48
+        else:
+            status = resolve(text, 0)
+            if status != 0:
+                return status
+            if not read(ISROOT):
+                if (read(read(ENTRY) + 44) & 16) == 0:
+                    return 5
+                cluster = read(TARGET)
+                budget = read(read(SELECT) + 32)
+                while True:
+                    if budget == 0:
+                        return 13
+                    cluster = fatget(cluster)
+                    if read(ERROR) != 0 or cluster < 2 or (cluster >= 4080 and cluster < 4088):
+                        return 13
+                    budget -= 1
+                    if cluster >= 4088:
+                        break
+            copytext(read(SELECT) + 64, PATHBUF)
+            return 0
+    else:
+        return 87
+    status = select(drive)
+    if status != 0:
+        return status
+    putc(48 + drive)
+    putc(58)
+    puts(read(SELECT) + 64)
+    newline()
+    return 0
+
+
 def prompt_drive():
     putc(48 + read(DRIVE))
     return 0
@@ -655,6 +697,8 @@ def fs_command(command, args):
             puts("MOVE source destination")
         elif command == 7:
             puts("DELETE path [/P]")
+        elif command == 9:
+            puts("CHDIR [path]")
         else:
             puts("SYS 1:|2:|3:")
         newline()
@@ -676,6 +720,8 @@ def fs_command(command, args):
         status = delete_command(args)
     elif command == 8:
         status = sys_command(args)
+    elif command == 9:
+        status = chdir_command(args)
     if status != 0:
         error_message(status)
         write(FATDRIVE, -1)
@@ -1187,6 +1233,17 @@ def drive_command(args):
     return status
 
 
+def cwd_busy():
+    p = PATHBUF
+    current = read(SELECT) + 64
+    while read(p) != 0:
+        if read(p) != read(current):
+            return 0
+        p += 4
+        current += 4
+    return read(current) == 0 or read(current) == 92
+
+
 def move_command(args):
     if tokens(args) != 2:
         return 87
@@ -1199,6 +1256,8 @@ def move_command(args):
         return 5
     entry = read(ENTRY)
     if read(entry + 44) & 1:
+        return 5
+    if (read(entry + 44) & 16) and cwd_busy():
         return 5
     memcopy(MOVEMETA, entry, 32)
     srcdrive = read(read(SELECT))

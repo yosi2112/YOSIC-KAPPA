@@ -1,4 +1,4 @@
-"""Regression checks for all eight builtins, including persisted FAT12 changes."""
+"""Regression checks for all nine builtins, including persisted FAT12 changes."""
 import struct
 
 from support import OUT, add_file, base, run, status
@@ -12,6 +12,7 @@ DIR /?
 MKDIR /?
 RMDIR /?
 DRIVE /?
+CHDIR /?
 COPY /?
 MOVE /?
 DELETE /?
@@ -52,6 +53,7 @@ while cluster < 0xff8:
 assert recovered[:size] == data
 assert saved[163 * 512:172 * 512] == saved[172 * 512:181 * 512]
 assert 'SYS 1:|2:|3:\n' in result.stdout, result.stdout
+assert 'CHDIR [path]\n' in result.stdout, result.stdout
 
 # Numeric paths also govern builtins and MOVE's internally reconstructed source.
 raw = base()
@@ -96,4 +98,4 @@ for drive in range(1, 4):
     assert transferred[162 * 512:] == target[162 * 512:]
     result, _ = run(f'sys-boot-{drive}', 'DIR /B\n', raw=transferred)
     assert 'KEEP.DAT\n' in result.stdout, result.stdout
-print('PASS all 8 builtins, persisted binary copies/move/delete, FAT mirrors, SYS and reboot')
+print('PASS all 9 builtin help forms, persisted binary copies/move/delete, FAT mirrors, SYS and reboot')

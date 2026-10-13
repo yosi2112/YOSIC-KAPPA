@@ -180,6 +180,7 @@ dispatch:
         Match "MKDIR",cmd_mkdir
         Match "RMDIR",cmd_rmdir
         Match "DRIVE",cmd_drive
+        Match "CHDIR",cmd_chdir
         Match "COPY",cmd_copy
         Match "MOVE",cmd_move
         Match "DELETE",cmd_delete
@@ -204,6 +205,8 @@ cmd_move: ADI R0,RZR,6
 cmd_delete: ADI R0,RZR,7
         JMP run_command
 cmd_sys: ADI R0,RZR,8
+        JMP run_command
+cmd_chdir: ADI R0,RZR,9
 run_command:
         PSH R0
         PSH R9
@@ -224,5 +227,6 @@ long_line:
         NewLine
         JMP new_line
         INCLUDE core.inc
+        INCLUDE chdir.inc
         INCLUDE exec.inc
         END

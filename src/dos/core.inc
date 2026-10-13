@@ -4151,6 +4151,10 @@ core_while_end_386:
         SNZ R0
         JMP core_else_388
         LRM R0,[R8+12]
+        ADI R0,R0,-9
+        SNZ R0
+        JMP core_chdir_help
+        LRM R0,[R8+12]
         ADI R1,RZR,1
         SUB R1,R0,R1
         ADI R0,RZR,0
@@ -4387,6 +4391,15 @@ core_else_434:
         SRM R0,[R8-4]
         JMP core_if_end_437
 core_else_436:
+        LRM R0,[R8+12]
+        ADI R0,R0,-9
+        SRZ R0
+        JMP core_if_end_437
+        LRM R0,[R8+8]
+        PSH R0
+        Call core_chdir_command
+        ADI SP,SP,4
+        SRM R0,[R8-4]
 core_if_end_437:
 core_if_end_435:
 core_if_end_433:
@@ -7991,6 +8004,19 @@ core_if_end_776:
         JMP core_if_end_778
 core_else_777:
 core_if_end_778:
+        ; Renaming a current directory or its ancestor would stale its path.
+        LRM R0,[R8-36]
+        LRM R0,[R0+44]
+        ADI R1,RZR,16
+        ANL R0,R0,R1
+        SNZ R0
+        JMP core_move_cwd_safe
+        Call core_cwd_busy
+        SNZ R0
+        JMP core_move_cwd_safe
+        ADI R0,RZR,5
+        JMP core_return_770
+core_move_cwd_safe:
         LRM R0,[R12+core_literal_779-8000h]
         PSH R0
         LRM R0,[R8-36]

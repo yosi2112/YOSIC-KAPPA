@@ -6,7 +6,7 @@
 
 Windows x64、C++20対応MSVC、CMake 3.25以上、Ninjaが必要です。Visual StudioのC++開発環境を推奨します。DOS媒体の生成とPythonテストにはPython 3も必要です。外部C++ライブラリは使用しません。
 
-以下は`src`、`doc`、`readme.md`があるソース一式のルートで実行します。「x64 Developer Command Prompt for VS xx」を開いてください。`cl`、`cmake`、`ninja`が見つからない場合は、VSのC++ツールとCMakeツール、開発環境のPATHを確認します。
+以下は`src`、`doc`、`readme.md`があるソース一式のルートで実行します。「Visual Studioのx64 Developer Command Prompt」を開いてください。`cl`、`cmake`、`ninja`が見つからない場合は、VSのC++ツールとCMakeツール、開発環境のPATHを確認します。
 
 日本語版MSVCでは構成前に`chcp 65001`を実行します。以前のコードページで作ったキャッシュが問題になる場合は、新しいビルド先か`cmake --fresh`を使用します。
 
@@ -66,6 +66,7 @@ YKEファイルはFAT12媒体へ配置してDOSから起動します。形式と
 | [syscall.inc](../src/dos/syscall.inc) | R1/JMPシステムコールの振分け、引数・復帰位置の確認 |
 | [file.inc](../src/dos/file.inc) | ハンドルの管理、OPEN/CLOSE/READ/WRITE、FAT12への反映 |
 | [api.inc](../src/dos/api.inc) | アプリ用の番号定数・定数設定・呼出しマクロ |
+| [chdir.inc](../src/dos/chdir.inc) | CHDIR、ドライブごとの現在位置、移動対象の保護 |
 | [core.inc](../src/dos/core.inc) | ファイルシステムと内蔵コマンドの正本アセンブリ |
 | [core.py](../src/dos/core.py) | ファイルシステム処理の整数Pythonソースモデル |
 | [runtime.inc](../src/dos/runtime.inc) | ネイティブ関数呼出しと定数展開 |
@@ -85,6 +86,7 @@ DOSをビルドした後、ソース一式のルートで実行します。公�
 ```bat
 python -B src\dos\tests\verify-quality.py
 python -B src\dos\tests\verify-drive.py
+python -B src\dos\tests\verify-chdir.py
 python -B src\dos\tests\verify-exec.py
 python -B src\dos\tests\verify-commands.py
 python -B src\dos\tests\verify-syscall.py
@@ -95,8 +97,9 @@ python -B src\dos\tests\verify-file.py
 |---|---|
 | verify-quality.py | Python構文、INCLUDE、空白、YKE名称、文書リンク |
 | verify-drive.py | 数値ドライブ選択、プロンプト、ヘルプ、不正指定、未接続媒体 |
+| verify-chdir.py | ドライブごとの現在位置、相対パス、上限・不正入力、使用中ディレクトリ保護、相対YKE起動とハンドルI/O |
 | verify-exec.py | 正常起動・EXIT、引数保持、分断チェーン、最大サイズ、入口、パス・ドライブ、ヘッダ・チェーン異常 |
-| verify-commands.py | 内蔵8コマンド、コピー・移動・削除の保存、FATの2コピー、SYS転送後の再起動 |
+| verify-commands.py | 内蔵9コマンド、コピー・移動・削除の保存、FATの2コピー、SYS転送後の再起動 |
 | verify-syscall.py | コンソール・ドライブ・内蔵操作、レジスタ・スタック保持、ポインタ・復帰位置、入力とEOF、公開サンプル |
 | verify-file.py | ハンドル読書き、バイナリ内容、ファイル位置、EOF、作成・切詰め・上書き、保存、解放・再利用、アクセス拒否、破損、容量不足 |
 

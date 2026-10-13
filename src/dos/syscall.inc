@@ -69,13 +69,13 @@ syscall_check_return:
         JMP syscall_command
         JMP file_dispatch
 syscall_command:
-        ; Map 10h..16h to filesystem command numbers 1,2,3,5,6,7,8.
+        ; Map 10h..17h to filesystem command numbers 1,2,3,5,6,7,8,9.
         ADI R0,R1,-10h
         Const R3,80000000h
         ANL R4,R0,R3
         SRZ R4
         JMP syscall_unknown
-        ADI R4,R0,-7
+        ADI R4,R0,-8
         ANL R4,R4,R3
         SNZ R4
         JMP syscall_unknown
@@ -86,6 +86,9 @@ syscall_command:
         ADI R0,R0,1
         SRM R0,[RZR+4d38h]
         ADI R4,R0,-1
+        SNZ R4
+        JMP syscall_command_text
+        ADI R4,R0,-9
         SNZ R4
         JMP syscall_command_text
         Call file_has_open

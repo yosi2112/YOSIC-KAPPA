@@ -54,7 +54,7 @@ for function, text, expected in [('DOS_MKDIR', 'mkdir', 0), ('DOS_COPY', 'copy',
                                   ('DOS_RMDIR', 'mkdir', 5), ('DOS_DELETE', 'delete', 0),
                                   ('DOS_RMDIR', 'mkdir', 0), ('DOS_SYS', 'system', 0)]:
     body += call(function, f'80000h+{text}', expected)
-for function in (6, 15, 23, 255, -1):
+for function in (6, 15, 24, 255, -1):
     body += call(function, 0, 1)
 for pointer in ('0', '0d0001h', '8fff0h', '0f0000h', '0fe0000h', '80000000h', '0fffffffch'):
     body += call('DOS_PUTS', pointer, 87)
