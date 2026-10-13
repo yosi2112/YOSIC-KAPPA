@@ -105,7 +105,17 @@ python -B src\dos\tests\verify-file.py
 
 統合テストは実CPU/FDC上で実行します。入力、媒体、生成アプリ、保存媒体、ログは`out/dos`へ置き、公開ソースへ混在させません。`support.py`はDOSの`INPUT_DONE`をブレークポイントに設定し、単に命令上限で停止した状態を成功と扱わないようにしています。
 
-## 7. C++の品質確認と公開ソース確認
+## 7. モニタ・デバッガの検証
+
+```bat
+cmake --build out/build --target yosic-monitor-check
+out\build\yosic-monitor-check.exe
+python -B src\tools\tests\monitor-cli.py
+```
+
+実CPU・バスを使い、SYMDEB形式の解析、レジスタ変更、バイト／16ビット／32ビットのメモリ操作、MMIOの非破壊読出し、逆アセンブル、T/P、ブレークポイントを確認します。検証実行ファイルは通常ビルドと配布対象には含めません。DOS検証は`--no-monitor`で実行します。`monitor-cli.py`は専用の実端末で、G/Tの連続入力、DOS入力、対象プロセスだけへのCtrl+Break、Qまでを確認し、GからDOSのプロンプトまでの実時間を`out/monitor-cli-result.txt`へ記録します。手動ではCLIの`-`からGで起動し、Ctrl+Breakで戻り、R/T/G/Qと入力の振分けを確認します。
+
+## 8. C++の品質確認と公開ソース確認
 
 VSのx64開発環境で`chcp 65001`を実行した後、PowerShellから実行します。
 

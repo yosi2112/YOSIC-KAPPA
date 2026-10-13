@@ -1,6 +1,6 @@
 # YOSIC-KAPPA
 
-32ビットCPU、コンソール、4台のフロッピーディスク装置を再現するWindows x64用CLIエミュレータです。
+32ビットCPU、コンソール、4台のフロッピーディスク装置を再現するWindows x64用エミュレータです。CLIとハードウェアモニタ・デバッガを備えます。
 全15命令、整数式とマクロを使うアセンブラ、raw/D88/KFD媒体、uPD765A FDC、IPLからの起動に対応します。
 
 ## ビルドと起動
@@ -13,6 +13,8 @@ cmake -S src -B out/build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build out/build
 out\build\yosic-sim.exe --rom out\build\boot\ipl.rom --disk 0 out\build\boot\boot.d88 --steps 1000000
 ```
+
+実端末では最初にモニタの`-`プロンプトが表示されます。`G`を入力するとゲストを実行します。直接起動する場合は`--no-monitor`を追加してください。
 
 起動すると`KAPPA IPL` → `IPL: BOOT` → `STAGE2 OK`と表示されます。
 通常実行は命令上限なしです。この例では`--steps 1000000`で停止します。上限を省略した場合はCtrl+Cで停止できます。
@@ -35,6 +37,7 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000
 ## マニュアル
 
 - [エミュレータ](doc/emulator.md)：起動、入力、ディスク、ビルド、CLI一覧
+- [ハードウェアモニタ・デバッガ](doc/monitor.md)：状態表示、SYMDEB形式の操作、レジスタ・メモリ・ブレークポイント
 - [アセンブラ](doc/assembler.md)：文法、式、マクロ、INCLUDE/BINCLUDE、リスティング
 - [アーキテクチャ](doc/architecture-reference.md)：レジスタ、命令、メモリ、仮想時刻
 - [インターフェース](doc/interface-reference.md)：コンソール、FDC、媒体形式、IPL契約

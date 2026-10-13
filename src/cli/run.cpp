@@ -2,8 +2,10 @@
 #include "devices/console/console.hpp"
 #include "disks.hpp"
 #include "fdc_trace.hpp"
+#include "monitor.hpp"
 #include "time/machine.hpp"
 #include <charconv>
+#include <chrono>
 #include <conio.h>
 #include <csignal>
 #include <fcntl.h>
@@ -12,16 +14,22 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace yosic {
 namespace {
 volatile std::sig_atomic_t interrupted = 0;
-void interrupt_handler(int) {
-    interrupted = 1;
+volatile std::sig_atomic_t monitor_interrupted = 0;
+void interrupt_handler(int signal) {
+    if (signal == SIGBREAK)
+        monitor_interrupted = 1;
+    else
+        interrupted = 1;
 }
 std::uint64_t number(std::string_view text) {
     int base = 10;
@@ -47,7 +55,8 @@ int run_cli(int argc, char *argv[]) {
     DiskMounts disks;
     std::optional<std::string> input_path;
     std::optional<std::uint64_t> limit;
-    bool registers = false, trace = false, trace_fdc = false, interactive = false;
+    bool registers = false, trace = false, trace_fdc = false, interactive = false, monitor = true;
+    bool monitor_requested = false;
     std::optional<std::uint32_t> breakpoint, dump;
     std::uint32_t dump_words = 0;
     try {
@@ -70,7 +79,13 @@ int run_cli(int argc, char *argv[]) {
                 input_path = arg();
             } else if (option == "--interactive")
                 interactive = true;
-            else if (option == "--steps")
+            else if (option == "--no-monitor") {
+                monitor = false;
+                monitor_requested = true;
+            } else if (option == "--monitor") {
+                monitor = true;
+                monitor_requested = true;
+            } else if (option == "--steps")
                 limit = number(arg());
             else if (option == "--step")
                 limit = 1;
@@ -99,6 +114,11 @@ int run_cli(int argc, char *argv[]) {
             throw std::invalid_argument("--rom is required");
         if (interactive && (input_path || !_isatty(_fileno(stdin))))
             throw std::invalid_argument("--interactive requires a terminal and excludes --input");
+        if (monitor && (input_path || !_isatty(_fileno(stdin)))) {
+            if (monitor_requested)
+                throw std::invalid_argument("--monitor requires a terminal and excludes --input");
+            monitor = false;
+        }
     } catch (const std::exception &error) {
         std::cerr << "error: " << error.what() << ". Use --help.\n";
         return 2;
@@ -159,45 +179,93 @@ int run_cli(int argc, char *argv[]) {
                         static_cast<std::streamsize>(bytes.size())))
             throw std::runtime_error("cannot read ROM");
         memory.load_rom(bytes);
+        Debugger debugger(machine, memory, fdc, count);
+        std::unique_ptr<HardwareMonitor> hardware;
+        if (monitor)
+            hardware = std::make_unique<HardwareMonitor>(debugger);
         interrupted = 0;
+        monitor_interrupted = 0;
         const auto old_handler = std::signal(SIGINT, interrupt_handler);
+        const auto old_break_handler = std::signal(SIGBREAK, interrupt_handler);
         struct RestoreSignal {
             decltype(old_handler) previous;
+            decltype(old_break_handler) previous_break;
             ~RestoreSignal() {
                 if (previous != SIG_ERR)
                     std::signal(SIGINT, previous);
+                if (previous_break != SIG_ERR)
+                    std::signal(SIGBREAK, previous_break);
             }
-        } restore{old_handler};
+        } restore{old_handler, old_break_handler};
         std::string_view reason = "limit";
+        auto input_poll = std::chrono::steady_clock::now();
         while (!limit || count < *limit) {
+            if (monitor_interrupted) {
+                monitor_interrupted = 0;
+                if (hardware)
+                    hardware->interrupt();
+                else {
+                    reason = "interrupted";
+                    break;
+                }
+            }
             if (interrupted) {
                 reason = "interrupted";
                 break;
+            }
+            // Monitor and keyboard polling are host work, not guest instructions.
+            // Batch them to avoid an OS console call for every emulated instruction.
+            if ((count & 0xfffu) == 0 || (hardware && !debugger.running())) {
+                if (hardware)
+                    hardware->pump();
+                if (debugger.quitting()) {
+                    reason = "monitor-quit";
+                    break;
+                }
+                const auto now = std::chrono::steady_clock::now();
+                if (interactive && (!hardware || debugger.accepts_guest_input()) &&
+                    !console.input_closed() && now >= input_poll) {
+                    input_poll = now + std::chrono::milliseconds(2);
+                    while (_kbhit()) {
+                        const auto ch = _getch();
+                        if (ch == 3) {
+                            interrupted = 1;
+                            break;
+                        }
+                        if (ch == 26) {
+                            console.close_input();
+                            break;
+                        }
+                        const std::uint8_t byte = static_cast<std::uint8_t>(ch);
+                        console.feed(std::span<const std::uint8_t>(&byte, 1));
+                    }
+                }
+            }
+            if (interrupted)
+                continue;
+            if (hardware && !debugger.running()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                continue;
             }
             if (breakpoint && cpu.address() == *breakpoint) {
                 reason = "breakpoint";
                 break;
             }
-            if (interactive && !console.input_closed()) {
-                while (_kbhit()) {
-                    const auto ch = _getch();
-                    if (ch == 3) {
-                        interrupted = 1;
-                        break;
-                    }
-                    if (ch == 26) {
-                        console.close_input();
-                        break;
-                    }
-                    const std::uint8_t byte = static_cast<std::uint8_t>(ch);
-                    console.feed(std::span<const std::uint8_t>(&byte, 1));
-                }
-                if (interrupted)
-                    continue;
-            }
             const auto at = cpu.address();
-            machine.step(memory);
-            ++count;
+            if (hardware) {
+                try {
+                    if (!debugger.advance())
+                        continue;
+                } catch (const Fault &fault) {
+                    hardware->interrupt();
+                    debugger.output(std::string("Fault: ") + fault.what() +
+                                    " address=" + std::to_string(fault.address) + "\n");
+                    continue;
+                }
+            } else {
+                machine.step(memory);
+                ++count;
+            }
             if (trace)
                 std::cerr << "trace pc=0x" << std::hex << at << " word=0x" << *cpu.instruction
                           << std::dec << " time_ns=" << machine.clock.now() << '\n';

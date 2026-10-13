@@ -16,6 +16,7 @@ constexpr std::string_view help_text =
     "     --steps N runs at most N instructions (0 runs none); --step runs one.\n"
     "     [--registers] [--dump ADDRESS WORDS] [--trace] [--trace-fdc] [--input FILE | "
     "--interactive]\n"
+    "     [--monitor | --no-monitor] CLI monitor starts paused on a terminal by default.\n"
     "Disk: --disk UNIT FILE | --disk-new UNIT; --disk-copy UNIT NEWFILE\n"
     "      --disk-index UNIT INDEX; --geometry C H S N (required for raw/new)\n"
     "CPU, assembler, MMIO console and FDC are available. Assembly IPL boots stage2 from raw/D88.\n";

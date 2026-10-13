@@ -61,7 +61,7 @@ def run(name, commands, raw=None, disks=None, dump=0x13f00, words=1,
     media.write_bytes(base() if raw is None else raw)
     input_file = OUT / f'{name}-input.txt'
     input_file.write_bytes(commands.encode('ascii'))
-    command = [str(TOOLS / 'yosic-sim.exe'), '--rom', str(TOOLS / 'boot/ipl.rom'),
+    command = [str(TOOLS / 'yosic-sim.exe'), '--no-monitor', '--rom', str(TOOLS / 'boot/ipl.rom'),
                '--geometry', '80', '2', '18', '2', '--disk', '0', str(media)]
     if disks:
         for drive, path in disks.items():
