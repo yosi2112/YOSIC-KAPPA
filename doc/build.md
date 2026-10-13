@@ -4,9 +4,9 @@
 
 ## 1. 開発環境と作業場所
 
-Windows x64、C++20対応MSVC、CMake 3.25以上、Ninjaが必要です。Visual Studio 18のC++開発環境を推奨します。DOS媒体の生成とPythonテストにはPython 3も必要です。外部C++ライブラリは使用しません。
+Windows x64、C++20対応MSVC、CMake 3.25以上、Ninjaが必要です。Visual StudioのC++開発環境を推奨します。DOS媒体の生成とPythonテストにはPython 3も必要です。外部C++ライブラリは使用しません。
 
-以下は`src`、`doc`、`readme.md`があるソース一式のルートで実行します。「x64 Developer Command Prompt for VS 18」を開いてください。`cl`、`cmake`、`ninja`が見つからない場合は、VSのC++ツールとCMakeツール、開発環境のPATHを確認します。
+以下は`src`、`doc`、`readme.md`があるソース一式のルートで実行します。「x64 Developer Command Prompt for VS xx」を開いてください。`cl`、`cmake`、`ninja`が見つからない場合は、VSのC++ツールとCMakeツール、開発環境のPATHを確認します。
 
 日本語版MSVCでは構成前に`chcp 65001`を実行します。以前のコードページで作ったキャッシュが問題になる場合は、新しいビルド先か`cmake --fresh`を使用します。
 
