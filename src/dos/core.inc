@@ -1856,10 +1856,7 @@ core_path:
         JMP core_else_147
         LRM R0,[R8+8]
         LRM R0,[R0]
-        PSH R0
-        Call core_upper
-        ADI SP,SP,4
-        ADI R0,R0,-65
+        ADI R0,R0,-48
         SRM R0,[R8-4]
         LRM R0,[R8+8]
         ADI R0,R0,8
@@ -3027,7 +3024,7 @@ core_if_end_252:
         PSH R0
         Call core_puts
         ADI SP,SP,4
-        ADI R0,RZR,65
+        ADI R0,RZR,48
         PSH R0
         LRM R0,[R12+core_literal_46-8000h]
         LRM R0,[R0]
@@ -7740,10 +7737,7 @@ core_drive_value:
         ADI SP,SP,-4
         LRM R0,[R8+8]
         LRM R0,[R0]
-        PSH R0
-        Call core_upper
-        ADI SP,SP,4
-        ADI R0,R0,-65
+        ADI R0,R0,-48
         SRM R0,[R8-4]
         LRM R0,[R8-4]
         ADI R1,RZR,0
@@ -7905,7 +7899,7 @@ core_return_761:
         ADD SP,R8,RZR
         POP R8
         JMP return_sub
-; Numeric DRIVE argument, 0..3. Keep drive_value for SYS's letter syntax.
+; Numeric DRIVE argument, 0..3. drive_value also accepts SYS's colon suffix.
 ; Manual assembly synchronized with core.py while the generator is absent.
 core_drive_number:
         LRM R1,[SP+4]
@@ -8024,7 +8018,7 @@ core_if_end_778:
         SRM R0,[R8-52]
         LRM R0,[R12+core_literal_780-8000h]
         PSH R0
-        ADI R0,RZR,65
+        ADI R0,RZR,48
         LRM R1,[R8-60]
         ADD R0,R0,R1
         ADD R1,R0,RZR
@@ -9514,7 +9508,7 @@ core_string_414:
 core_string_418:
         DD 68,69,76,69,84,69,32,112,97,116,104,32,91,47,80,93,0
 core_string_420:
-        DD 83,89,83,32,66,58,124,67,58,124,68,58,0
+        DD 83,89,83,32,49,58,124,50,58,124,51,58,0
 core_string_576:
         DD 47,80,0
 core_string_593:

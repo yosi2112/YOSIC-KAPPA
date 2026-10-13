@@ -315,7 +315,7 @@ def find(directory, free):
 def path(text):
     drive = read(DRIVE)
     if read(text + 4) == 58:
-        drive = upper(read(text)) - 65
+        drive = read(text) - 48
         text += 8
     status = select(drive)
     if status != 0:
@@ -471,7 +471,7 @@ def directory_command(args):
     directory = read(SEARCHDIR)
     if not bare:
         puts(" Directory of ")
-        putc(65 + read(read(SELECT)))
+        putc(48 + read(read(SELECT)))
         putc(58)
         puts(PATHBUF)
         newline()
@@ -656,7 +656,7 @@ def fs_command(command, args):
         elif command == 7:
             puts("DELETE path [/P]")
         else:
-            puts("SYS B:|C:|D:")
+            puts("SYS 1:|2:|3:")
         newline()
         return 0
     status = 87
@@ -1160,7 +1160,7 @@ def copy_command(args):
 
 
 def drive_value(p):
-    drive = upper(read(p)) - 65
+    drive = read(p) - 48
     if drive < 0 or drive >= 4:
         return -1
     if read(p + 4) == 0 or (read(p + 4) == 58 and read(p + 8) == 0):
@@ -1206,7 +1206,7 @@ def move_command(args):
     cluster = read(TARGET)
     slba = read(DIRLBA)
     soffset = entry - DIRECTORY
-    write(MOVESRC, 65 + srcdrive)
+    write(MOVESRC, 48 + srcdrive)
     write(MOVESRC + 4, 58)
     copytext(MOVESRC + 8, PATHBUF)
     status = resolve(destination, 1)

@@ -20,6 +20,16 @@ def main():
     assert saved == raw, 'Executing a file must not change the disk'
     status(result, 7)
 
+    # Explicit numeric paths address each drive without changing the prompt.
+    numeric_disk = OUT / 'yke-numeric.img'
+    numeric_disk.write_bytes(raw)
+    for drive in range(4):
+        commands = f'{drive}:\\HELLO\n"{drive}:\\HELLO.YKE" argument\nDRIVE\n'
+        result, _ = run(f'yke-numeric-{drive}', commands, raw if drive == 0 else base(),
+                        disks={drive: numeric_disk} if drive else None)
+        assert result.stdout.count('HELLO YKE\n') == 2, result.stdout
+        assert result.stdout.endswith('0:>DRIVE\n0:\n0:>'), result.stdout
+
     # Enter after an illegal first word, span non-contiguous clusters and tracks.
     raw = base()
     offset_source = OUT / 'offset.asm'
@@ -93,7 +103,7 @@ END
     add_file(raw, 0, 'HELLO.YKE', image, [601], directory=600)
     other = OUT / 'yke-other.img'
     other.write_bytes(raw)
-    result, _ = run('yke-path', 'B:\\SUB\\HELLO.YKE\nDRIVE 1\n\\SUB\\HELLO\n',
+    result, _ = run('yke-path', '1:\\SUB\\HELLO.YKE\nDRIVE 1\n\\SUB\\HELLO\n',
                     disks={1: other})
     assert result.stdout.count('HELLO YKE\n') == 2, result.stdout
     assert result.stdout.endswith('1:>'), result.stdout
@@ -135,7 +145,7 @@ END
         status(result, 13)
 
     for name, line, error, value in [('missing', 'MISSING\n', 'File or path not found', 3),
-                                    ('unmounted', 'B:\\HELLO\n', 'Drive not ready', 21),
+                                    ('unmounted', '1:\\HELLO\n', 'Drive not ready', 21),
                                     ('extension', 'HELLO.BIN\n', 'Invalid YKE executable', 11),
                                     ('directory', 'DIR.YKE\n', 'Access denied', 5),
                                     ('quote', '"HELLO\n', 'Invalid parameter', 87)]:
@@ -144,6 +154,11 @@ END
         result, _ = run('yke-' + name, line, raw)
         assert error + '\n' in result.stdout, result.stdout
         status(result, value)
+
+    for drive in ('A', 'a', 'B', 'C', 'D', '4', '9', '/'):
+        result, _ = run(f'yke-invalid-drive-{ord(drive)}', f'{drive}:\\HELLO\n')
+        assert 'Invalid drive specification\n' in result.stdout, result.stdout
+        status(result, 15)
     print('PASS YKE1/.YKE: native launch/return, arguments, fragmented/max-size files, '
           'entry offsets, paths/drives, header/chain errors, missing media, shell state')
 
