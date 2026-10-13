@@ -48,23 +48,23 @@ LSEGのAは0=CS、1=DS、2=SS、3=ESです。
 次表の「ゼロ必須」は命令語に対するマスクです。`(命令語 & マスク) != 0`なら不正です。
 予約ビット、レジスタ番号、opcodeをすべて確認した後に動作を始めます。
 
-| 命令 | opcode | 使用フィールド | ゼロ必須 |
-|---|---|---|---|
-| NOP | `0x00` | なし | `0x03FFFFFF` |
-| LRM | `0x01` | A=Rd、B=Rb、imm16 | `0` |
-| SRM | `0x02` | A=Rs、B=Rb、imm16 | `0` |
-| PSH | `0x03` | A=Rs | `0x001FFFFF` |
-| SRZ | `0x04` | A=Rs | `0x001FFFFF` |
-| SNZ | `0x05` | A=Rs | `0x001FFFFF` |
-| JMP | `0x06` | imm21 | `0x03E00000` |
-| POP | `0x08` | A=Rd | `0x001FFFFF` |
-| ADD | `0x10` | A=Rd、B=Ra、C=Rb | `0x000007FF` |
-| ADI | `0x11` | A=Rd、B=Ra、imm16 | `0` |
-| SUB | `0x12` | A=Rd、B=Ra、C=Rb | `0x000007FF` |
-| ANL | `0x14` | A=Rd、B=Ra、C=Rb | `0x000007FF` |
-| ORR | `0x15` | A=Rd、B=Ra、C=Rb | `0x000007FF` |
-| XOR | `0x16` | A=Rd、B=Ra、C=Rb | `0x000007FF` |
-| LSEG | `0x20` | A=Seg、B=Rs | `0x0000FFFF` |
+| 命令 | opcode | 意味 | 使用フィールド | ゼロ必須 |
+|---|---|---|---|---|
+| NOP | `0x00` | No OPeration | なし | `0x03FFFFFF` |
+| LRM | `0x01` | Load Register from Memory | A=Rd、B=Rb、imm16 | `0` |
+| SRM | `0x02` | Store Register to Memory | A=Rs、B=Rb、imm16 | `0` |
+| PSH | `0x03` | PuSH register | A=Rs | `0x001FFFFF` |
+| SRZ | `0x04` | Skip if Register is Zero | A=Rs | `0x001FFFFF` |
+| SNZ | `0x05` | Skip if register is Not Zero | A=Rs | `0x001FFFFF` |
+| JMP | `0x06` | JuMP to address | imm21 | `0x03E00000` |
+| POP | `0x08` | POP register | A=Rd | `0x001FFFFF` |
+| ADD | `0x10` | ADD registers | A=Rd、B=Ra、C=Rb | `0x000007FF` |
+| ADI | `0x11` | ADd register Immidiate | A=Rd、B=Ra、imm16 | `0` |
+| SUB | `0x12` | SUBtract registers | A=Rd、B=Ra、C=Rb | `0x000007FF` |
+| ANL | `0x14` | ANd Logically | A=Rd、B=Ra、C=Rb | `0x000007FF` |
+| ORR | `0x15` | OR Registers | A=Rd、B=Ra、C=Rb | `0x000007FF` |
+| XOR | `0x16` | eXclusive OR  | A=Rd、B=Ra、C=Rb | `0x000007FF` |
+| LSEG | `0x20` | Load SEGment | A=Seg、B=Rs | `0x0000FFFF` |
 
 符号化は`opcode<<26`に使用フィールドをORします。たとえば`ADI R1,RZR,5`は`0x442F0005`、バイト列は`05 00 2F 44`です。
 
