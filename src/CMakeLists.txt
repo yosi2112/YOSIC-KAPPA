@@ -37,7 +37,7 @@ target_link_libraries(yosic-as PRIVATE yosic-assembler)
 
 
 add_subdirectory(tools/mkimage)
-include(tools/distribution/package.cmake)
+include(tools/distribution/install.cmake)
 
 set(YOSIC_TEST_ROOT "${PROJECT_SOURCE_DIR}/../tests")
 set(YOSIC_TESTS_AVAILABLE OFF)

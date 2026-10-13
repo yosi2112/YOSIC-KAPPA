@@ -57,9 +57,9 @@ LRM R0,[R1]
 SRM R0,[RZR+1000h]
 SRM R2,[RZR+1004h]
 SRM R3,[RZR+1008h]
-ADI R0,RZR,0
-ADI R5,RZR,2
-JMP 0fff8h
+ADI R1,RZR,0
+ADI R2,RZR,0
+JMP 0fff0h
 END
 ''')
     args_bin = OUT / 'args.bin'
@@ -81,9 +81,9 @@ ADI SP,RZR,0
 ADI R10,RZR,0
 ADI R11,RZR,0
 ADI R12,RZR,0
-ADI R0,RZR,23
-ADI R5,RZR,2
-JMP 0fff8h
+ADI R1,RZR,0
+ADI R2,RZR,23
+JMP 0fff0h
 END
 ''')
     state_bin = OUT / 'state.bin'

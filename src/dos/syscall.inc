@@ -58,6 +58,17 @@ syscall_check_return:
         ADI R0,R1,-5
         SNZ R0
         JMP syscall_setdrive
+        ADI R0,R1,-20h
+        Const R3,80000000h
+        ANL R4,R0,R3
+        SRZ R4
+        JMP syscall_command
+        ADI R4,R0,-4
+        ANL R4,R4,R3
+        SNZ R4
+        JMP syscall_command
+        JMP file_dispatch
+syscall_command:
         ; Map 10h..16h to filesystem command numbers 1,2,3,5,6,7,8.
         ADI R0,R1,-10h
         Const R3,80000000h
@@ -74,6 +85,13 @@ syscall_check_return:
         SNZ R4
         ADI R0,R0,1
         SRM R0,[RZR+4d38h]
+        ADI R4,R0,-1
+        SNZ R4
+        JMP syscall_command_text
+        Call file_has_open
+        SRZ R0
+        JMP syscall_denied
+syscall_command_text:
         ADI R3,RZR,127
         Call syscall_text
         SRZ R0
@@ -133,6 +151,9 @@ syscall_setdrive:
         JMP syscall_return
 syscall_unknown:
         ADI R0,RZR,1
+        JMP syscall_result
+syscall_denied:
+        ADI R0,RZR,5
         JMP syscall_result
 syscall_parameter:
         ADI R0,RZR,87

@@ -25,9 +25,8 @@ TX_READYは常に1です。出力先へ同期的に書きます。INPUT_EOFとRX
 ファイル入力は全体を供給してEOFにします。無指定なら最初からEOFです。入力待ちでホストを止めることはありません。
 端末ではCtrl+ZがEOF、Ctrl+Cが停止です。バイト列を変換せず、文字コード変換は行いません。
 
-次はDSを設定して`A`を1文字出す最小例です。ZIPのルートで作業用`work`を作り、`work\put-a.asm`へ保存します。
+次はDSを設定して`A`を1文字出す最小例です。実行用フォルダのルートで作業用`work`を作り、`work\put-a.asm`へ保存します。
 
-<!-- asm: put-a -->
 ```asm
         ADI R0,RZR,0FEh
         LSEG DS,R0
@@ -36,7 +35,6 @@ TX_READYは常に1です。出力先へ同期的に書きます。INPUT_EOFとRX
 stop:   JMP stop
 ```
 
-<!-- case: put-a -->
 ```bat
 bin\yosic-as.exe work\put-a.asm -o work\put-a.rom
 bin\yosic-sim.exe --rom work\put-a.rom --steps 4

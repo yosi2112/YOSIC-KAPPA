@@ -6,14 +6,13 @@ FDCはフロッピーディスクを制御する装置です。IPLは起動時�
 
 この本は起動とファイルの扱いを説明します。プログラムを書くときは[アセンブラ](assembler.md)、CPUの決まりは[アーキテクチャ](architecture-reference.md)、機器と媒体の形式は[インターフェース](interface-reference.md)を参照してください。
 
-## 1. ZIPを展開して起動する
+## 1. 実行用フォルダから起動する
 
-配布ZIPを空のフォルダへ展開します。Windowsのコマンドプロンプト（cmd）を開き、展開したフォルダへ移動してください。以下の操作例は、特記がない限り**ZIPのルートでcmdから実行**します。空白を含むファイル名は二重引用符で囲みます。
+実行用フォルダを用意します。ソースからの作成方法は[ビルド・開発用マニュアル](build.md)を参照してください。Windowsのコマンドプロンプト（cmd）を開き、`out/portable`へ移動してください。以下の操作例は、特記がない限り**実行用フォルダのルートでcmdから実行**します。空白を含むファイル名は二重引用符で囲みます。
 実行にはVisual StudioやPythonは不要です。PowerShellでexeを直接実行する場合は、`bin\`の前に`.\`を付けます。バイナリの入出力例はcmdで実行してください。
 
-<!-- case: boot-d88 -->
 ```bat
-bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000 --dump 0x400 1
+bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000
 ```
 
 次の3行が出れば、ディスクからstage2まで進んでいます。
@@ -24,7 +23,6 @@ IPL: BOOT
 STAGE2 OK
 ```
 
-診断側には`mem[0x400]=0x13572468`が出ます。これはstage2がRAMへ書いた値です。
 `stop=limit`は明示した`--steps`の命令数まで実行したという意味です。サンプルは最後に同じ命令を繰り返すため、この表示は正常です。通常実行には命令上限がなく、`--steps`を省略するとCtrl+Cまたはブレークポイントで止めるまで動き続けます。CPUや入出力の異常でも停止します。
 
 ## 2. ファイルを見分ける
@@ -48,12 +46,10 @@ RAMは起動のたびに0になります。RAMやレジスタは、終了後の�
 
 新しい作業フォルダ`work`を作ります。以下の例はこのフォルダを使い続けます。
 
-<!-- case: work -->
 ```bat
 mkdir work
 ```
 
-<!-- case: count -->
 ```bat
 bin\yosic-as.exe src\examples\count.asm -o work\count.rom
 bin\yosic-sim.exe --rom work\count.rom --steps 4 --registers
@@ -61,7 +57,6 @@ bin\yosic-sim.exe --rom work\count.rom --steps 4 --registers
 
 `R1=0x7`を確認します。`--steps 4`は4命令まで、`--step`は1命令だけ実行します。実行するたびにリセット状態から始まります。
 
-<!-- case: step -->
 ```bat
 bin\yosic-sim.exe --rom work\count.rom --step --registers --dump 0x00FF0000 1
 bin\yosic-sim.exe --rom work\count.rom --break 0x00FF0004
@@ -79,7 +74,6 @@ bin\yosic-sim.exe --rom work\count.rom --break 0x00FF0004
 
 次の例は入力をそのまま返します。cmdの`>`は既存ファイルを上書きするので、ここでは新しい`work`を使います。
 
-<!-- case: echo -->
 ```bat
 echo Hello>work\input.bin
 bin\yosic-as.exe src\examples\console\echo.asm -o work\echo.rom
@@ -104,7 +98,6 @@ Ctrl+ZはEOF、Ctrl+Cは実行停止です。`--input`と`--interactive`は併�
 
 `--disk UNIT FILE`で接続します。UNITは0～3です。IPLはドライブ0を使います。
 
-<!-- case: four-drives -->
 ```bat
 bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --disk 1 boot\boot.d88 --disk 2 boot\boot.d88 --disk 3 boot\boot.d88 --steps 1000000 --dump 0x400 1
 ```
@@ -114,7 +107,6 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --disk 1 boot\boot.d
 raw（`.img`）には形状情報がないため、`--geometry C H S N`を付けます。Cはシリンダ数、Hは面数、Sは1トラックのセクタ数です。1セクタのバイト数は`128 << N`です。
 C=1～82、H=1～2、S=1～255、N=0～6を指定します。geometryは同じ実行内のrawと新規媒体で共通です。rawへのコピー保存にも必要です。
 
-<!-- case: boot-raw -->
 ```bat
 bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.img --geometry 80 2 18 2 --steps 1000000 --dump 0x400 1
 ```
@@ -122,7 +114,6 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.img --geometry 80 2 18 2
 これも`STAGE2 OK`を表示します。D88とKFDには媒体情報があるため、読込みだけならgeometryは不要です。
 複数枚を連結したD88では、`--disk-index UNIT INDEX`で使う1枚を選びます。INDEXは0始まり、既定は0です。
 
-<!-- case: concatenated -->
 ```bat
 copy /b boot\boot.d88+boot\boot.d88 work\pair.d88
 bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 work\pair.d88 --disk-index 0 1 --steps 1000000 --dump 0x400 1
@@ -138,7 +129,6 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 work\pair.d88 --disk-index 0 1 --s
 次の例は起動媒体の空きセクタC0/H0/R18へ`0x41`を512バイト書きます。ヘッダR1とプログラムR2～17を保つ例です。
 保存先`work\written.d88`はまだ存在しない名前にしてください。
 
-<!-- case: save-reboot -->
 ```bat
 bin\yosic-as.exe src\examples\fdc\write-boot-spare.asm -o work\write.rom
 bin\yosic-sim.exe --rom work\write.rom --disk 0 boot\boot.d88 --disk-copy 0 work\written.d88 --steps 500000
@@ -152,16 +142,14 @@ raw/D88へ情報を失わず変換できない媒体には`.kfd`を使います�
 
 空の媒体を作る場合は`--disk-new`を使います。次の例はドライブ0に空の媒体を作って保存します。起動プログラムは含まれません。
 
-<!-- case: new-media -->
 ```bat
 bin\yosic-sim.exe --rom work\count.rom --step --disk-new 0 --geometry 80 2 18 2 --disk-copy 0 work\blank.d88
 ```
 
 ## 7. IPLとstage2を作り直す
 
-同梱ソースからIPLとstage2を組み立て、起動用D88を作れます。作業場所は引き続きZIPのルートです。
+同梱ソースからIPLとstage2を組み立て、起動用D88を作れます。作業場所は引き続き実行用フォルダのルートです。
 
-<!-- case: regenerate -->
 ```bat
 bin\yosic-as.exe src\firmware\ipl\ipl.asm -o work\ipl.rom --list work\ipl.lst --map work\ipl.map
 bin\yosic-as.exe src\firmware\stage2\stage2.asm -o work\stage2.bin
@@ -182,7 +170,6 @@ payload（読み込むプログラム本体）は4～8192バイト、4バイト�
 
 トレースは、実行した命令や機器へのアクセスの記録です。cmdの`2>`で診断だけをファイルへ保存できます。
 
-<!-- case: trace -->
 ```bat
 bin\yosic-sim.exe --rom work\count.rom --steps 4 --trace 2>work\cpu-trace.txt
 bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000 --trace-fdc 2>work\fdc-trace.txt
@@ -221,33 +208,6 @@ FDCの`time_ns`と`phase`はアクセス時刻とアクセス前の段階です�
 
 faultでは失敗した命令のCPUレジスタ・PC・FLAGSを更新しません。媒体の途中書込みなど、すでに受理された機器の動作とは区別してください。
 
-## 10. ソースからビルドする
-
-この節だけは**ソース一式のルート**で実行します。ZIPの実行用フォルダとは違います。
-Windows x64、Visual Studio 18のC++開発環境、CMake、Ninjaが必要です。C++20を使い、外部C++ライブラリは不要です。
-「x64 Developer Command Prompt for VS 18」を開きます。通常のPowerShellに開発環境のPATHが入っていない場合は、このプロンプトに切り替えてください。
-
-```bat
-chcp 65001
-cmake -S src -B out/build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build out/build
-out\build\yosic-sim.exe --rom out\build\boot\ipl.rom --disk 0 out\build\boot\boot.d88 --steps 1000000 --dump 0x400 1
-```
-
-通常ビルドで`boot-images`も作ります。実行用ZIPと同じ起動表示を確認できます。
-日本語版MSVCでは、構成前に`chcp 65001`を実行してください。以前のコードページで作ったキャッシュが問題になる場合は、新しいビルド先を選ぶか`cmake --fresh`で構成し直します。
-`cl`、`cmake`、`ninja`が見つからない場合は、VSのC++ツールとCMakeツールの導入状態を確認します。
-
-Release版ZIPは次のコマンドで作ります。
-
-```bat
-cmake -S src -B out/release -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build out/release
-cpack --config out/release/CPackConfig.cmake -B out/packages
-```
-
-出力は`out/packages/yosic-kappa-0.1.0-windows-x64-Release.zip`です。
-任意のフォルダへ配置するには`cmake --install out/release --prefix out/portable`も使えます。
 ## CLI一覧
 
 実行時は`--rom`が必須です。数値のうち命令数・アドレスは10進か`0x`付き16進、ディスク番号・index・geometryは10進です。負数や範囲外は拒否します。

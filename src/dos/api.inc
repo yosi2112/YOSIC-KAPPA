@@ -12,12 +12,16 @@ DOS_COPY       EQU 13h
 DOS_MOVE       EQU 14h
 DOS_DELETE     EQU 15h
 DOS_SYS        EQU 16h
+DOS_OPEN       EQU 20h
+DOS_CLOSE      EQU 21h
+DOS_READ       EQU 22h
+DOS_WRITE      EQU 23h
 DosConst MACRO reg,value
-        ADI reg,RZR,(((value+8000h)>>16)&7fffh)-(((value+8000h)>>16)&8000h)
+        ADI reg,RZR,((((value)+8000h)>>16)&7fffh)-((((value)+8000h)>>16)&8000h)
         REPT 16
         ADD reg,reg,reg
         ENDM
-        ADI reg,reg,(value&7fffh)-(value&8000h)
+        ADI reg,reg,((value)&7fffh)-((value)&8000h)
         ENDM
 ; R2 holds the argument; R0 returns status and R2 may return data.
 DosCall MACRO function

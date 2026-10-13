@@ -17,7 +17,9 @@ def assemble(name, body, entry=0):
 
 
 def check(register, value):
-    return f'DosConst R0,{value}\nSUB R0,{register},R0\nSRZ R0\nJMP bad\n'
+    prefix = 'ADD R5,R0,RZR\n' if register == 'R0' else ''
+    register = 'R5' if register == 'R0' else register
+    return prefix + f'DosConst R0,{value}\nSUB R0,{register},R0\nSRZ R0\nJMP bad\n'
 
 
 def call(function, argument, expected=0, result=None):
@@ -27,7 +29,7 @@ def call(function, argument, expected=0, result=None):
     return source
 
 
-failure = 'bad:\nADI R0,RZR,99\nADI R5,RZR,2\nJMP 0fff8h\n'
+failure = 'bad:\nADI R1,RZR,DOS_EXIT\nADI R2,RZR,99\nJMP 0fff0h\n'
 body = 'DosConst SP,0e8000h\n'
 for register, value in [('R3', 33), ('R4', 44), ('R6', 66), ('R8', 88), ('R9', 99),
                         ('R10', 100), ('R11', 111), ('R12', 122), ('R13', 133)]:
@@ -126,9 +128,9 @@ DosConst R7,0ffech
 ADI R1,RZR,DOS_GETDRIVE
 JMP 0fff0h
 bad:
-ADI R0,RZR,55
-ADI R5,RZR,2
-JMP 0fff8h
+ADI R1,RZR,DOS_EXIT
+ADI R2,RZR,55
+JMP 0fff0h
 ORG 0ffech
 JMP bad
 '''
@@ -167,5 +169,5 @@ add_file(raw, 0, 'SC.YKE', encode(example_bin.read_bytes()))
 result, _ = run('syscall-example', 'SC\n', raw)
 assert 'HELLO SYSCALL\n' in result.stdout, result.stdout
 status(result, 7)
-print('PASS syscall R1/JMP ABI: all 13 functions, registers/stack, pointers, '
-      'input/EOF, filesystem/SYS/reboot, return bounds and legacy exit')
+print('PASS syscall R1/JMP ABI: console/drive/command functions, registers/stack, pointers, '
+      'input/EOF, filesystem/SYS/reboot, return bounds and EXIT')

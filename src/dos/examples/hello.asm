@@ -1,5 +1,5 @@
 ; YKE payload: CS=8, DS=SS=ES=0. R1 is a word-byte argument tail.
-; Write console output, clobber shell registers, then return with status 7.
+; Write console output, clobber shell registers, then EXIT with status 7.
         CPU YOSIC-KAPPA
         ADI R10,RZR,0feh
         REPT 16
@@ -16,7 +16,7 @@
         ADI R6,RZR,123
         ADI R11,RZR,0
         ADI R12,RZR,0
-        ADI R0,RZR,7
-        ADI R5,RZR,2
-        JMP 0fff8h
+        ADI R1,RZR,0       ; EXIT
+        ADI R2,RZR,7
+        JMP 0fff0h
         END

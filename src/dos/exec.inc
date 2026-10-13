@@ -304,14 +304,14 @@ exec_args:
         ADI R2,R2,1
         JMP exec_args
 exec_launch:
-        ; Legacy exit at FFF8; syscall entry at FFF0 sets R5=2 itself.
+        ; Syscall entry at FFF0 sets R5=2; resume uses a NOP/JMP trampoline.
         Const R1,80050000h
         Const R9,2fff4h
         SRM R1,[R9]
         Const R9,8fff4h
         SRM R1,[R9]
         Const R9,8fff8h
-        SRM R1,[R9]
+        SRM RZR,[R9]
         Const R1,44af0002h
         Const R9,8fff0h
         SRM R1,[R9]
@@ -331,19 +331,19 @@ exec_launch:
         ORR R0,R0,R1
         Const R9,8fffch
         SRM R0,[R9]
-        LRM R0,[R12+exec_return_jump-8000h]
+        Const R0,0ffffffffh
         Const R9,2fffch
         SRM R0,[R9]
         SRM SP,[RZR+4c28h]
+        PSH R2
+        Call file_reset
+        POP R2
         Const SP,0f0000h
         Const R1,0f1000h
         Const R9,13ff0h
         LRM R3,[R9]
-        Const R4,0fff8h
         ADI R5,RZR,8
         JMP 0fff4h
-exec_return_jump:
-        DD 18000000h+(((exec_return-0fffch)/4)&1fffffh)
 exec_return:
         ; Restore kernel segments, stack and persistent shell registers.
         LSEG DS,RZR
@@ -354,6 +354,7 @@ exec_return:
         Const R10,0fe0000h
         ADI R11,RZR,256
         Const R12,28000h
+        Call file_reset
         Const R1,13ff4h
         ADI R0,RZR,-1
         SRM R0,[R1]
@@ -392,3 +393,4 @@ exec_done:
         POP R6
         JMP return_sub
         INCLUDE syscall.inc
+        INCLUDE file.inc

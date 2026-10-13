@@ -6,10 +6,9 @@ Alfred ArnoldのMacroassembler ASを参考にした整数式とマクロを使�
 
 ## 1. 最初のプログラム
 
-配布ZIPを展開したルートをcmdで開き、新しい`work`フォルダを作っておきます。
+実行用フォルダのルートをcmdで開き、新しい`work`フォルダを作っておきます。
 次の3行をUTF-8のテキスト`work\first.asm`として保存してください。
 
-<!-- asm: first -->
 ```asm
         ADI R1,RZR,5
 loop:   ADI R1,R1,1
@@ -18,7 +17,6 @@ loop:   ADI R1,R1,1
 
 最初の命令でR1へ5を入れます。次の命令で1を足し、最後の命令で足し算へ戻ります。
 
-<!-- case: first -->
 ```bat
 bin\yosic-as.exe work\first.asm -o work\first.rom --list work\first.lst --map work\first.map
 bin\yosic-sim.exe --rom work\first.rom --steps 4 --registers
@@ -54,7 +52,6 @@ ROMの物理位置をソースに書く場合は`--base 0xff0000`を指定しま
 
 ラベルは、命令やデータの位置に付ける名前です。
 
-<!-- asm: labels -->
 ```asm
         CPU YOSIC-KAPPA
 Console EQU 0FEh
@@ -159,7 +156,6 @@ ORG、ALIGN、領域の確保数、条件、繰返し数は、その行に達し
 
 次を`work\data.asm`へ保存して組み立てると、式の結果をバイト列で確認できます。このファイルはデータ専用で、ROMとして実行しません。
 
-<!-- asm: data -->
 ```asm
         CPU YOSIC-KAPPA
 Twice   FUNCTION x,x*2
@@ -175,7 +171,6 @@ Value   SET 7
         END
 ```
 
-<!-- case: data -->
 ```bat
 bin\yosic-as.exe work\data.asm -o work\data.bin --list work\data.lst
 ```
@@ -190,7 +185,6 @@ bin\yosic-as.exe work\data.asm -o work\data.bin --list work\data.lst
 マクロは名前を付けて繰り返し使うソースです。呼出しより前にMACROで定義し、ENDMで閉じます。
 次を`work\macro.asm`へ保存します。
 
-<!-- asm: macro -->
 ```asm
 Inc     MACRO reg,count=1
         REPT count
@@ -202,7 +196,6 @@ Inc     MACRO reg,count=1
 stop:   JMP stop
 ```
 
-<!-- case: macro -->
 ```bat
 bin\yosic-as.exe work\macro.asm -o work\macro.rom --list work\macro.lst
 bin\yosic-sim.exe --rom work\macro.rom --steps 5 --registers
@@ -253,7 +246,6 @@ MAXNEST 0で制限を解除することはできません。WHILEで停止しな
 
 同梱の小さいマクロ例は`AS`と表示します。
 
-<!-- case: macro-console -->
 ```bat
 bin\yosic-as.exe src\examples\macro-console.asm -o work\console.rom
 bin\yosic-sim.exe --rom work\console.rom --steps 12
@@ -322,21 +314,18 @@ BINCLUDEのoffsetとlengthは、その行で値が決まる非負整数式です
 
 次を`work\constants.asm`へ保存します。
 
-<!-- asm: constants -->
 ```asm
 Size EQU 12
 ```
 
 次を`work\included.asm`へ保存します。最初の例の`first.rom`から4バイト取り込みます。
 
-<!-- asm: included -->
 ```asm
         INCLUDE "constants.asm"
         DB Size
         BINCLUDE "first.rom",0,4
 ```
 
-<!-- case: include -->
 ```bat
 bin\yosic-as.exe work\included.asm -o work\included.bin --list work\included.lst
 ```
@@ -351,12 +340,10 @@ bin\yosic-as.exe work\included.asm -o work\included.bin --list work\included.lst
 
 次のエラー例は`work\bad.asm`へ保存します。
 
-<!-- asm: bad -->
 ```asm
         NOP 1
 ```
 
-<!-- case: bad -->
 ```bat
 bin\yosic-as.exe work\bad.asm -o work\first.rom
 ```
