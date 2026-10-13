@@ -6,7 +6,7 @@ result, _ = run('drive-verification', (DOS / 'tests/drive-input.txt').read_text(
                 disks={drive: OUT / 'dos.d88' for drive in range(1, 4)})
 expected = '''KAPPA IPL
 IPL: BOOT
-KAPPA DOS Version 0.1
+YOSIC-DOS 1.0K
 0:>DRIVE /?
 DRIVE [0|1|2|3]
 0:>DRIVE 1

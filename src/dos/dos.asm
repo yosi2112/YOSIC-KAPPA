@@ -1,4 +1,4 @@
-; KAPPA DOS: native CS=2 kernel and disk-loaded YKE1 applications.
+; YOSIC-DOS 1.0K: native CS=2 kernel and disk-loaded YKE1 applications.
 ; DS/SS stay zero. One input byte occupies one aligned RAM word.
 ; Persistent registers: R3 length, R4 write pointer, R5 rejected line,
 ; R6 pending CR, R10 physical console, R11 256, R12 code bias.
@@ -77,7 +77,7 @@ entry:
         Const R12,28000h
         Call core_init
         ADI R6,RZR,0
-        PutText "KAPPA DOS Version 0.1"
+        PutText "YOSIC-DOS 1.0K"
         NewLine
 
 new_line:

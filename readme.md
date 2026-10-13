@@ -38,7 +38,7 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000
 - [アセンブラ](doc/assembler.md)：文法、式、マクロ、INCLUDE/BINCLUDE、リスティング
 - [アーキテクチャ](doc/architecture-reference.md)：レジスタ、命令、メモリ、仮想時刻
 - [インターフェース](doc/interface-reference.md)：コンソール、FDC、媒体形式、IPL契約
-- [KAPPA DOS](doc/dos/README.md)：コマンド、外部アプリ、システムコール、ファイルハンドル
+- [YOSIC-DOS 1.0K](doc/dos/README.md)：コマンド、外部アプリ、システムコール、ファイルハンドル
 - [ビルド・開発用マニュアル](doc/build.md)：ソースからのビルドと開発作業
 
 ライセンスは[MIT](license)です。

@@ -1,4 +1,4 @@
-# KAPPA DOS
+# YOSIC-DOS 1.0K
 
 KAPPA CPU上で動くDOSです。FAT12のファイル操作、4ドライブ、8つの内蔵コマンド、独自形式`YKE1`・独自拡張子`.YKE`の外部プログラムに対応します。
 

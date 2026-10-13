@@ -1,8 +1,8 @@
-# KAPPA DOS説明書
+# YOSIC-DOS 1.0K説明書
 
 ## 1. 概要と対象
 
-KAPPA DOS Version 0.1はYOSIC-KAPPAの32ビットCPU上で実行するDOSです。ファイル操作とプログラムのディスク読込みは、ゲスト命令からuPD765A互換FDCのMMIOを使って行います。ホストOSにコマンド処理やファイル操作を代行させません。
+YOSIC-DOS 1.0KはYOSIC-KAPPAの32ビットCPU上で実行するDOSです。ファイル操作とプログラムのディスク読込みは、ゲスト命令からuPD765A互換FDCのMMIOを使って行います。ホストOSにコマンド処理やファイル操作を代行させません。
 
 FAT12、8.3形式の名前、4台のフロッピードライブを扱います。内蔵コマンドは`DIR`、`MKDIR`、`RMDIR`、`DRIVE`、`COPY`、`MOVE`、`DELETE`、`SYS`です。外部実行ファイルには独自ヘッダ`YKE1`と拡張子`.YKE`を使用します。MS-DOSの実行ファイル、x86命令、BATファイル、環境変数、PATH検索、パイプ、リダイレクトには対応していません。
 
@@ -14,7 +14,7 @@ DOS起動媒体をドライブ0に接続し、IPLから起動します。エミ�
 .\out\build\yosic-sim.exe --rom out/build/boot/ipl.rom --disk 0 out/dos/dos.d88 --interactive
 ```
 
-`KAPPA IPL`、`IPL: BOOT`、`KAPPA DOS Version 0.1`に続いて`0:>`が表示されます。エミュレータは通常Ctrl+Cで停止します。DOSに終了コマンドはありません。
+`KAPPA IPL`、`IPL: BOOT`、`YOSIC-DOS 1.0K`に続いて`0:>`が表示されます。エミュレータは通常Ctrl+Cで停止します。DOSに終了コマンドはありません。
 
 媒体は既定では読取り専用です。ファイル作成・削除やSYS転送を保存する場合、対象ドライブに新しい出力先を指定します。出力先のファイルが既に存在する場合、エミュレータは開始時に拒否します。
 

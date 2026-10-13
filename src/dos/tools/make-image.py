@@ -22,12 +22,12 @@ def build(directory):
     # SYS and core.select use a fixed FAT volume start at LBA 162.
     start, total, fatsize, entries = 162, 2880 - 162, 9, 224
     bpb = bytearray(512)
-    bpb[:11] = b'\xeb\x3c\x90KAPPADOS'
+    bpb[:11] = b'\xeb\x3c\x90YOSICDOS'
     struct.pack_into('<HBHBHHBHHHII', bpb, 11, 512, 1, 1, 2, entries,
                      total, 0xf0, fatsize, 18, 2, start, 0)
     bpb[38] = 0x29
     struct.pack_into('<I', bpb, 39, 0x4b415050)
-    bpb[43:54] = b'KAPPA DOS  '
+    bpb[43:54] = b'YOSIC-DOS  '
     bpb[54:62] = b'FAT12   '
     bpb[510:] = b'\x55\xaa'
     raw[start * 512:(start + 1) * 512] = bpb
@@ -35,7 +35,7 @@ def build(directory):
         offset = (start + 1 + copy * fatsize) * 512
         raw[offset:offset + 3] = b'\xf0\xff\xff'
     header = bytearray(0x2b0)
-    header[:9] = b'KAPPA DOS'
+    header[:14] = b'YOSIC-DOS 1.0K'
     header[0x1b] = 0x20
     tracks = bytearray()
     for track in range(160):
