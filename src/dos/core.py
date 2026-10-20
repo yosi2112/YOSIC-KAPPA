@@ -133,6 +133,8 @@ def init():
         write(state, drive)
         write(state + 4, 0)
         write(state + 36, 0)
+        write(state + 40, 0)  # CP/M-style sticky read-only until disk reset.
+        write(state + 44, 0)  # Root-directory checksum vector not logged in.
         write(state + 64, 92)
         write(state + 68, 0)
         drive += 1
@@ -147,42 +149,48 @@ def select(drive):
         return 15
     state = STATES + drive * 512
     write(SELECT, state)
-    generation = read(0xFE0120 + drive * 4)
-    if read(state + 40) != generation:
-        write(state + 40, generation)
-        write(state + 4, 0)
-        write(state + 36, 0)
-        write(state + 64, 92)
-        write(state + 68, 0)
-        write(FATDRIVE, -1)
-        write(DIRLBA, -1)
+    status = media_check()
+    if status != 0:
+        return status
     if read(state + 4) != 0 and read(FATDRIVE) == drive:
         return 0
+    write(state + 48, 18)
+    write(state + 36, 1)  # 512-byte sectors per FAT cluster in the DOS view.
     status = block(0, SECTOR, drive, 0)
     if status != 0:
         return status
     start = 0
-    if read(SECTOR) == 75 and read(SECTOR + 4) == 66 and read(SECTOR + 8) == 80 and read(SECTOR + 12) == 49:
-        start = 162
-        status = block(start, SECTOR, drive, 0)
-        if status != 0:
-            return status
-    if le16(SECTOR + 44) != 512 or read(SECTOR + 52) != 1 or read(SECTOR + 64) != 2:
-        return 13
+    bytes_per_sector = le16(SECTOR + 44)
+    sectors_per_cluster = read(SECTOR + 52)
     reserved = le16(SECTOR + 56)
     entries = le16(SECTOR + 68)
     total = le16(SECTOR + 76)
     fatsize = le16(SECTOR + 88)
+    sectors_per_track = le16(SECTOR + 96)
+    if bytes_per_sector == 1024 and sectors_per_track == 8 and read(SECTOR + 84) == 0xfe:
+        # L3DiskEx's PC-98 profile counts 1024-byte physical sectors. DOS block()
+        # exposes each physical sector as two 512-byte virtual sectors.
+        write(state + 36, 2)
+        write(state + 48, 16)
+        reserved *= 2
+        total *= 2
+        fatsize *= 2
+        sectors_per_track *= 2
+        sectors_per_cluster = 2
+    if (bytes_per_sector not in (512, 1024) or sectors_per_cluster != read(state + 36) or
+            read(SECTOR + 64) != 2 or sectors_per_track != read(state + 48)):
+        return 13
     if reserved < 1 or entries < 16 or entries > 512 or entries % 16 != 0:
         return 13
-    if fatsize < 1 or fatsize > 9 or total + start > 2880 or total < 64:
+    capacity = 2464 if read(state + 48) == 16 else 2880
+    if fatsize < 1 or fatsize > 9 or total + start > capacity or total < 64:
         return 13
     if read(SECTOR + 2040) != 85 or read(SECTOR + 2044) != 170:
         return 13
     fatstart = start + reserved
     root = fatstart + fatsize * 2
     data = root + entries // 16
-    clusters = total + start - data
+    clusters = (total + start - data) // read(state + 36)
     if clusters < 1 or clusters >= 4085 or (clusters + 2) * 3 > fatsize * 1024:
         return 13
     write(state + 8, start)
@@ -203,7 +211,51 @@ def select(drive):
     write(state + 4, 1)
     write(FATDRIVE, drive)
     write(DIRLBA, -1)
+    return media_check()
+
+
+def media_checksums(buffer, vector, compare, state):
+    record = 0
+    while record < 4:
+        checksum = 0
+        byte = 0
+        while byte < 128:
+            checksum += read(buffer + (record * 128 + byte) * 4)
+            byte += 1
+        checksum &= 255
+        if compare:
+            if read(vector + record * 4) != checksum:
+                write(state + 40, 1)
+                write(DIRLBA, -1)
+        else:
+            write(vector + record * 4, checksum)
+        record += 1
     return 0
+
+
+def media_check():
+    state = read(SELECT)
+    if read(state + 4) == 0:
+        return 0
+    index = 0
+    while index < read(state + 24) // 16:
+        status = block(read(state + 20) + index, 0x44800, read(state), 0)
+        if status != 0:
+            return status
+        media_checksums(0x44800, state + 2048 + index * 16, read(state + 44), state)
+        index += 1
+    write(state + 44, 1)
+    return 0
+
+
+def media_written(lba, buffer, state):
+    index = lba - read(state + 20)
+    if read(state + 44) != 0 and index >= 0 and index < read(state + 24) // 16:
+        media_checksums(buffer, state + 2048 + index * 16, 0, state)
+    return 0
+
+# Handwritten blockio.inc rejects writes when STATES[drive]+40 is set and calls
+# media_written after successful writes. Ctrl+C calls init and closes handles.
 
 
 def fatget(cluster):
@@ -274,7 +326,8 @@ def dir_entry(directory, index):
         lba = read(state + 20) + index // 16
     else:
         budget = read(state + 32)
-        while index >= 16:
+        cluster_entries = read(state + 36) * 16
+        while index >= cluster_entries:
             directory = fatget(directory)
             if directory >= 4088:
                 return 0
@@ -282,11 +335,12 @@ def dir_entry(directory, index):
                 write(ERROR, 13)
                 return 0
             budget -= 1
-            index -= 16
+            index -= cluster_entries
         if directory >= read(state + 32) + 2:
             write(ERROR, 13)
             return 0
-        lba = read(state + 28) + directory - 2
+        cluster_sectors = read(state + 36)
+        lba = read(state + 28) + (directory - 2) * cluster_sectors + index // 16
     if read_dir_sector(lba) != 0:
         return 0
     return DIRECTORY + (index % 16) * 128
@@ -536,10 +590,28 @@ def mkdir_command(args):
     write(WORK + 132, 46)
     write(WORK + 172, 16)
     set16(WORK + 232, parent)
-    status = block(read(state + 28) + cluster - 2, WORK, read(state), 1)
-    if status != 0:
-        write(FATDRIVE, -1)
-        return status
+    lba = read(state + 28) + (cluster - 2) * read(state + 36)
+    sector = 0
+    while sector < read(state + 36):
+        clear(WORK, 512)
+        if sector == 0:
+            i = 0
+            while i < 11:
+                write(WORK + i * 4, 32)
+                write(WORK + 128 + i * 4, 32)
+                i += 1
+            write(WORK, 46)
+            write(WORK + 44, 16)
+            set16(WORK + 104, cluster)
+            write(WORK + 128, 46)
+            write(WORK + 132, 46)
+            write(WORK + 172, 16)
+            set16(WORK + 232, parent)
+        status = block(lba + sector, WORK, read(state), 1)
+        if status != 0:
+            write(FATDRIVE, -1)
+            return status
+        sector += 1
     status = fatflush()
     if status != 0:
         return status
@@ -886,13 +958,16 @@ def free_entry(directory):
     cluster = allocate()
     if cluster == 0:
         return 0
-    clear(WORK, 512)
-    lba = read(state + 28) + cluster - 2
-    status = block(lba, WORK, read(state), 1)
-    if status != 0:
-        fatset(cluster, 0)
-        write(ERROR, status)
-        return 0
+    lba = read(state + 28) + (cluster - 2) * read(state + 36)
+    sector = 0
+    while sector < read(state + 36):
+        clear(WORK, 512)
+        status = block(lba + sector, WORK, read(state), 1)
+        if status != 0:
+            fatset(cluster, 0)
+            write(ERROR, status)
+            return 0
+        sector += 1
     fatset(tail, cluster)
     status = fatflush()
     if status != 0:
@@ -906,7 +981,8 @@ def free_entry(directory):
 def chain_load(cluster, size, destination):
     state = read(SELECT)
     limit = read(state + 32)
-    if size < 0 or size > limit * 512:
+    cluster_bytes = read(state + 36) * 512
+    if size < 0 or size > limit * cluster_bytes:
         write(ERROR, 13)
         return -1
     if cluster == 0:
@@ -927,7 +1003,7 @@ def chain_load(cluster, size, destination):
         write(destination + count * 4, cluster)
         count += 1
         cluster = fatget(cluster)
-    if count * 512 < size:
+    if count * cluster_bytes < size:
         write(ERROR, 13)
         return -1
     return count
@@ -1078,7 +1154,8 @@ def copy_one(srcdrive, directory, index, destination, prompt):
     memcopy(DSTNAME, NAMEBUF, 11)
     dlba = read(DIRLBA)
     doffset = entry - DIRECTORY
-    count = (size + 511) // 512
+    cluster_bytes = read(dststate + 36) * 512
+    count = (size + cluster_bytes - 1) // cluster_bytes
     i = 0
     while i < count:
         cluster = allocate()
@@ -1092,18 +1169,25 @@ def copy_one(srcdrive, directory, index, destination, prompt):
     status = fatflush()
     if status != 0:
         return status
-    i = 0
-    while i < count:
-        status = block(read(srcstate + 28) + read(SRCCHAIN + i * 4) - 2, COPYBUF, srcdrive, 0)
+    sectors = (size + 511) // 512
+    src_spc = read(srcstate + 36)
+    dst_spc = read(dststate + 36)
+    sector = 0
+    while sector < sectors:
+        src_index, src_offset = divmod(sector, src_spc)
+        dst_index, dst_offset = divmod(sector, dst_spc)
+        src_lba = read(srcstate + 28) + (read(SRCCHAIN + src_index * 4) - 2) * src_spc + src_offset
+        dst_lba = read(dststate + 28) + (read(DSTCHAIN + dst_index * 4) - 2) * dst_spc + dst_offset
+        status = block(src_lba, COPYBUF, srcdrive, 0)
         if status == 0:
-            status = block(read(dststate + 28) + read(DSTCHAIN + i * 4) - 2, COPYBUF, dstdrive, 1)
+            status = block(dst_lba, COPYBUF, dstdrive, 1)
         if status != 0:
             failure = status
             if select(dstdrive) == 0:
                 free_chain(DSTCHAIN, count)
                 fatflush()
             return failure
-        i += 1
+        sector += 1
     if read_dir_sector(dlba) != 0:
         return read(ERROR)
     entry = DIRECTORY + doffset

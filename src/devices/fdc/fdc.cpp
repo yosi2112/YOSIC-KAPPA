@@ -40,28 +40,20 @@ Fdc::Fdc(Clock &clock) : clock_(clock) {
     later(256000, [this] { poll(); });
 }
 bool Fdc::can_change_media(unsigned unit) const {
-    return unit < drives.size() && phase_ == Phase::idle && !busy_[unit] &&
-           !(media_locks_ & (1u << unit)) &&
-           drives[unit].media_generation != std::numeric_limits<std::uint32_t>::max();
+    return unit < drives.size() && phase_ == Phase::idle && !busy_[unit];
 }
 void Fdc::change_media(unsigned unit, std::shared_ptr<media::Disk> disk, bool read_only,
                        bool double_sided) {
     if (!can_change_media(unit))
-        throw std::runtime_error("drive busy or locked; finish the guest disk operation first");
+        throw std::runtime_error("FDC busy; finish the disk transfer first");
     auto &drive = drives[unit];
     drive.disk = std::move(disk);
     drive.read_only = read_only;
     drive.double_sided = double_sided;
-    ++drive.media_generation;
     ++unload_epoch_[unit];
     loaded_[unit] = false;
     ready_[unit] = drive.ready();
     interrupt(static_cast<std::uint8_t>(0xc0 | unit | (ready_[unit] ? 0 : 8)), unit);
-}
-void Fdc::media_locks(std::uint32_t value) {
-    if (value & ~15u)
-        throw Fault("invalid-media-lock", FdcBoard::base + 20);
-    media_locks_ = value;
 }
 void Fdc::later(std::uint64_t delay, std::function<void()> action) {
     if (delay > std::numeric_limits<std::uint64_t>::max() - clock_.now())
@@ -315,7 +307,7 @@ void Fdc::execute() {
     track_count_ = 0;
     format_count_ = 0;
     format_id_.clear();
-    offset_ = transfer_ = 0;
+    offset_ = transfer_ = sector_offset_ = 0;
     reading_ = op_ == 2 || op_ == 6 || op_ == 10 || op_ == 12;
     request_ = drq_ = false;
     id_ = {0, 0, 0, 0};
@@ -416,13 +408,33 @@ void Fdc::find_sector() {
             if (!s.id_mark || s.density != ((command_[0] & 0x40) ? 0 : 0x40))
                 continue;
             any_id = true;
-            if (op_ != 10 && op_ != 2 &&
-                (s.id[1] != id_[1] || s.id[2] != id_[2] || s.id[3] != id_[3]))
-                continue;
+            if (op_ != 10 && op_ != 2) {
+                if (s.id[1] != id_[1])
+                    continue;
+                const bool exact = s.id[2] == id_[2] && s.id[3] == id_[3];
+                const bool half_sector = id_[3] == 2 && s.id[3] == 3 &&
+                                         s.data.size() == 1024 &&
+                                         static_cast<unsigned>(s.id[2]) ==
+                                             (static_cast<unsigned>(id_[2]) + 1u) / 2u &&
+                                         id_[2] >= 1 && id_[2] <= 16;
+                if (!exact && !half_sector)
+                    continue;
+            }
+            const auto selected_offset = s.id[3] == 3 && id_[3] == 2
+                                             ? static_cast<std::size_t>((id_[2] - 1) % 2) * 512
+                                             : 0;
             auto delay = d.delay(head_, i, clock_.now());
+            if (selected_offset) {
+                delay = (delay + byte_time() * selected_offset) % rev;
+                // The second virtual sector is the upper half of the same
+                // physical data field. A late command can still consume it.
+                if (delay > rev / 2)
+                    delay = 0;
+            }
             if (delay < best) {
                 best = delay;
                 sector_ = i;
+                sector_offset_ = selected_offset;
                 found = true;
             }
         }
@@ -512,7 +524,7 @@ void Fdc::request_byte() {
     request_ = true;
     drq_ = !ndma();
     if (reading_)
-        latch_ = sector().data[offset_];
+        latch_ = sector().data[sector_offset_ + offset_];
     const auto generation = ++byte_epoch_;
     // NEC service budget: 13 us MFM / 27 us FM; byte cadence remains 16/32 us.
     const auto overhead = writing() ? 1000u : (command_[0] & 0x40) ? 3000u : 5000u;
@@ -539,10 +551,10 @@ void Fdc::accept_byte(std::uint8_t value) {
         }
     } else if (writing()) {
         auto &s = sector();
-        s.data[offset_] = value;
+        s.data[sector_offset_ + offset_] = value;
         drives[unit_].disk->dirty = true;
     } else if (scan()) {
-        auto disk = sector().data[offset_];
+        auto disk = sector().data[sector_offset_ + offset_];
         scan_equal_ &= disk == value;
         scan_low_ &= disk <= value;
         scan_high_ &= disk >= value;
@@ -554,7 +566,7 @@ void Fdc::accept_byte(std::uint8_t value) {
         if (op_ == 13)
             request_byte();
         else if (offset_ == transfer_ || tc_)
-            event(byte_time() * (sector().data.size() - offset_ + 2), [this] { end_sector(); });
+            event(byte_time() * (transfer_ - offset_ + 2), [this] { end_sector(); });
         else
             request_byte();
     });
@@ -580,14 +592,14 @@ void Fdc::terminal_count() {
     }
     // Stop host requests now, but finish CRC/write padding on the rotating medium.
     ++epoch_;
-    event(byte_time() * (sector().data.size() - offset_ + 2), [this] { end_sector(); });
+    event(byte_time() * (transfer_ - offset_ + 2), [this] { end_sector(); });
 }
 void Fdc::end_sector() {
     if (!ready())
         return;
     auto &s = sector();
     if (writing()) {
-        if (tc_ || transfer_ < s.data.size())
+        if ((tc_ || transfer_ < s.data.size()) && s.id[3] != 3)
             std::fill(s.data.begin() + static_cast<std::ptrdiff_t>(offset_), s.data.end(),
                       std::uint8_t{0});
         s.data_crc = true;
@@ -724,8 +736,6 @@ void Fdc::format_end() {
     finish();
 }
 std::uint32_t FdcBoard::read(std::uint32_t o) {
-    if (o == 20 || (o >= 32 && o <= 44 && !(o & 3u)))
-        return peek(o);
     if (o == 0)
         return fdc_.msr();
     if (o == 4)
@@ -737,9 +747,7 @@ std::uint32_t FdcBoard::read(std::uint32_t o) {
     throw Fault("invalid-mmio-read", base + o);
 }
 void FdcBoard::write(std::uint32_t o, std::uint32_t v) {
-    if (o == 20)
-        fdc_.media_locks(v);
-    else if (o == 4)
+    if (o == 4)
         fdc_.data(static_cast<std::uint8_t>(v));
     else if (o == 12)
         fdc_.control(v);
@@ -749,10 +757,6 @@ void FdcBoard::write(std::uint32_t o, std::uint32_t v) {
         throw Fault("invalid-mmio-write", base + o);
 }
 std::uint32_t FdcBoard::peek(std::uint32_t o) const {
-    if (o == 20)
-        return fdc_.media_locks();
-    if (o >= 32 && o <= 44 && !(o & 3u))
-        return fdc_.drives[(o - 32) / 4].media_generation;
     if (o == 0)
         return fdc_.msr();
     if (o == 4 || o == 16)

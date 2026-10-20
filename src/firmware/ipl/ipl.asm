@@ -114,6 +114,10 @@ seek_done:
         ORR R13,R13,R3
         SRZ R13
         JMP fdc_error
+        ADI R0,RZR,0
+        SRM R0,[RZR+1900h]
+        SRM R0,[RZR+1904h]
+        SRM R0,[RZR+190ch]
         ADI R5,RZR,1
         ADI R6,RZR,1800h
         ADI R7,RZR,1
@@ -122,9 +126,14 @@ seek_done:
 
 read_sector:
         Send 46h
-        Send 0
-        Send 0
-        Send 0
+        LRM R3,[RZR+1904h]
+        ADD R3,R3,R3
+        ADD R3,R3,R3
+        SendReg R3
+        LRM R3,[RZR+1900h]
+        SendReg R3
+        LRM R3,[RZR+1904h]
+        SendReg R3
         SendReg R5
         Send 2
         Send 18
@@ -174,9 +183,13 @@ transfer_done:
         SRZ R3
         JMP fdc_error
         Receive R3
+        LRM R1,[RZR+1900h]
+        SUB R3,R3,R1
         SRZ R3
         JMP fdc_error
         Receive R3
+        LRM R1,[RZR+1904h]
+        SUB R3,R3,R1
         SRZ R3
         JMP fdc_error
         Receive R3
@@ -218,15 +231,27 @@ unpack:
         SRZ R13
         JMP unpack
 copied:
-        ADI R0,R5,-1
-        SRZ R0
+        LRM R0,[RZR+190ch]
+        SNZ R0
+        JMP header_check
         JMP payload_next
-        Expect 0,3150424bh
-        Expect 4,1
-        Expect 12,2000h
-        Expect 16,2000h
-        Expect 28,0
-        LRM R8,[RZR+1808h]
+header_check:
+        Expect 64,3150424bh
+        Expect 68,1
+        Expect 76,2000h
+        Expect 80,2000h
+        LRM R0,[RZR+185ch]
+        SRM R0,[RZR+181ch]
+        ADI R1,R0,-16
+        SRZ R1
+        JMP check_geometry_18
+        JMP geometry_ok
+check_geometry_18:
+        ADI R1,R0,-18
+        SRZ R1
+        JMP bad_header
+geometry_ok:
+        LRM R8,[RZR+1848h]
         Const R1,0ffffc003h
         ANL R0,R8,R1
         SRZ R0
@@ -250,13 +275,46 @@ count_sectors:
         SNZ R2
         JMP count_sectors
 count_done:
-        LRM R7,[RZR+1818h]
+        LRM R7,[RZR+1858h]
         SUB R1,R1,R7
         SRZ R1
         JMP bad_header
-        ADI R5,RZR,2
+        LRM R0,[RZR+1864h]
+        SRM R0,[RZR+1900h]
+        LRM R0,[RZR+1868h]
+        SRM R0,[RZR+1904h]
+        LRM R0,[RZR+186ch]
+        ADD R5,R0,RZR
         ADI R6,RZR,2000h
         ADI R11,RZR,0
+        ADI R0,RZR,1
+        SRM R0,[RZR+190ch]
+        ; The system file starts at the first sector of cylinder one.
+        Send 0fh
+        Send 0
+        LRM R3,[RZR+1900h]
+        SendReg R3
+        ADI R0,RZR,32767
+        ADI R3,RZR,1
+ipl_seek_wait:
+        LRM R1,[R10+108h]
+        ANL R1,R1,R3
+        SRZ R1
+        JMP ipl_seek_done
+        ADI R0,R0,-1
+        SNZ R0
+        JMP timeout
+        JMP ipl_seek_wait
+ipl_seek_done:
+        Send 8
+        Receive R3
+        ADI R13,R3,-20h
+        Receive R3
+        LRM R1,[RZR+1900h]
+        SUB R3,R3,R1
+        ORR R13,R13,R3
+        SRZ R13
+        JMP fdc_error
         JMP read_sector
 payload_next:
         ADI R5,R5,1
@@ -267,7 +325,7 @@ payload_next:
         JMP checksum
         JMP bad_header
 checksum:
-        LRM R0,[RZR+1814h]
+        LRM R0,[RZR+1854h]
         SUB R0,R0,R11
         SRZ R0
         JMP bad_checksum

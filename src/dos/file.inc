@@ -1,5 +1,5 @@
 ; Handle API: eight application-local slots at B0000h, 128 bytes per slot.
-; Slot: active/mode/drive/dirLBA/dirOffset/size/position/firstCluster/name[11]/generation.
+; Slot: active/mode/drive/dirLBA/dirOffset/size/position/firstCluster/name[11].
 ; Scratch 4F00h..4F7Fh; sector COPYBUF, chain SRCCHAIN. Writes are synchronous.
 FileField MACRO offset
         LRM R0,[R13+offset]
@@ -121,6 +121,22 @@ file_io_loop:
         Call core_div
         SRM R0,[R13+56]
         SRM R1,[R13+60]
+        LRM R0,[R13+32]
+        LRM R0,[R0+36]
+        ADI R1,RZR,1
+        SUB R1,R0,R1
+        SNZ R1
+        JMP file_cluster_sector_ready
+        LRM R0,[R13+56]
+        LRM R1,[R13+32]
+        LRM R1,[R1+36]
+        Call core_div
+        SRM R0,[R13+56]
+        SRM R1,[R13+76]
+        JMP file_cluster_sector_done
+file_cluster_sector_ready:
+        SRM RZR,[R13+76]
+file_cluster_sector_done:
         SRM RZR,[R13+72]
         LRM R1,[R13+40]
         SUB R2,R0,R1
@@ -155,6 +171,26 @@ file_new_sector:
         FileSmall 512
         Call core_clear
         ADI SP,SP,8
+        FileSmall 1
+        Call file_sector
+        ADI SP,SP,4
+        SRZ R0
+        JMP file_io_fault
+        LRM R0,[R13+32]
+        LRM R0,[R0+36]
+        ADI R1,RZR,2
+        SUB R1,R0,R1
+        SNZ R1
+        JMP file_cluster_zero_done
+        ADI R0,RZR,1
+        SRM R0,[R13+76]
+        FileSmall 1
+        Call file_sector
+        ADI SP,SP,4
+        SRZ R0
+        JMP file_io_fault
+        SRM RZR,[R13+76]
+file_cluster_zero_done:
 file_chunk:
         ADI R0,RZR,512
         LRM R1,[R13+60]
@@ -325,9 +361,6 @@ file_slot_scan:
         LRM R0,[R8]
         SNZ R0
         JMP file_slot_found
-        Call file_slot_current
-        SNZ R0
-        JMP file_slot_found
         ADI R8,R8,128
         ADI R9,R9,1
         ADI R0,R9,-9
@@ -450,13 +483,6 @@ file_open_ready:
         LRM R0,[R13]
         ADI R1,RZR,1
         SRM R1,[R0]
-        LRM R1,[R13+8]
-        ADD R1,R1,R1
-        ADD R1,R1,R1
-        Const R7,0fe0120h
-        ADD R7,R7,R1
-        LRM R1,[R7]
-        SRM R1,[R0+76]
         ADI R0,R0,32
         PSH R0
         FileField 36
@@ -511,9 +537,6 @@ file_find:
         LRM R0,[R8]
         SNZ R0
         JMP file_invalid
-        Call file_slot_current
-        SNZ R0
-        JMP file_invalid
         SRM R8,[R13]
         ADI R8,R8,4
         ADI R9,R13,4
@@ -551,9 +574,6 @@ file_duplicate:
         ADI R9,RZR,8
 file_duplicate_loop:
         LRM R0,[R8]
-        SNZ R0
-        JMP file_duplicate_next
-        Call file_slot_current
         SNZ R0
         JMP file_duplicate_next
         LRM R0,[R8+8]
@@ -647,9 +667,17 @@ file_chain:
         SRZ R1
         JMP file_helper_disk_error
         SRM R0,[R13+40]
-        LRM R0,[R13+20]
-        ADI R0,R0,511
+        LRM R0,[R13+32]
+        LRM R0,[R0+36]
         ADI R1,RZR,512
+        Call core_mul
+        PSH R0
+        ADI R0,R0,-1
+        PSH R0
+        LRM R0,[R13+20]
+        POP R1
+        ADD R0,R0,R1
+        POP R1
         Call core_div
         LRM R1,[R13+40]
         SUB R0,R0,R1
@@ -700,8 +728,16 @@ file_commit:
 file_sector:
         LRM R0,[R13+32]
         LRM R0,[R0+28]
+        PSH R0
+        LRM R0,[R13+32]
+        LRM R0,[R0+36]
         LRM R1,[R13+64]
         ADI R1,R1,-2
+        Call core_mul
+        ADD R1,R0,RZR
+        POP R0
+        ADD R0,R0,R1
+        LRM R1,[R13+76]
         ADD R0,R0,R1
         PSH R0
         FileField 120

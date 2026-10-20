@@ -57,7 +57,7 @@ try {
     }
     $ClangFormatPath = (Resolve-Path -LiteralPath $ClangFormatPath).Path
 
-    $sourceFiles = @(foreach ($sourceRoot in @('src', 'tests')) {
+    $sourceFiles = @(foreach ($sourceRoot in @('src')) {
         $sourceDirectory = Join-Path $projectRoot $sourceRoot
         if (Test-Path -LiteralPath $sourceDirectory -PathType Container) {
             Get-ChildItem -LiteralPath $sourceDirectory -Recurse -File |

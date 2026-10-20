@@ -53,16 +53,23 @@ Receive MACRO reg
         INCLUDE kernel.inc
 Cylinder EQU 1900h
 Head     EQU 1904h
+Sectors  EQU 1908h
         ORG 2000h
 entry:  Const R10,0fe0000h
         ADI R4,RZR,0e0h
         ADI R12,RZR,0c0h
-        SRM RZR,[RZR+Cylinder]
-        ADI R0,RZR,1
-        SRM R0,[RZR+Head]
+        LRM R3,[RZR+1864h]
+        SRM R3,[RZR+Cylinder]
+        LRM R3,[RZR+1868h]
+        SRM R3,[RZR+Head]
+        LRM R3,[RZR+185ch]
+        SRM R3,[RZR+Sectors]
+        LRM R5,[RZR+186ch]
+        LRM R3,[RZR+1858h]
+        ADD R5,R5,R3
         ADI R0,RZR,10h
         SRM R0,[R10+10ch]
-        ; IPL leaves the FDC specified and physically at cylinder zero.
+        ; IPL leaves the FDC specified at the system file's starting cylinder.
         ADI R0,RZR,512
 settle: ADI R0,R0,-1
         SNZ R0
@@ -80,7 +87,6 @@ settled:
         ADI R7,R7,-1
         SRZ R7
         JMP drain
-        ADI R5,RZR,1
         Const R6,20000h
         ADI R7,RZR,KernelSectors
         Const R8,KernelBytes
@@ -97,7 +103,8 @@ read_sector:
         SendReg R3
         SendReg R5
         Send 2
-        Send 18
+        LRM R3,[RZR+Sectors]
+        SendReg R3
         Send 1bh
         Send 0ffh
         Const R9,10000h
@@ -140,7 +147,8 @@ transfer_done:
         SRZ R3
         JMP fdc_error
         LRM R13,[RZR+Cylinder]
-        ADI R2,R5,-18
+        LRM R3,[RZR+Sectors]
+        SUB R2,R5,R3
         SRZ R2
         JMP result_cylinder
         ADI R13,R13,1
@@ -155,7 +163,9 @@ result_cylinder:
         SRZ R3
         JMP fdc_error
         ADI R13,R5,1
-        ADI R2,R13,-19
+        LRM R3,[RZR+Sectors]
+        ADI R2,R3,1
+        SUB R2,R13,R2
         SRZ R2
         JMP result_sector
         ADI R13,RZR,1
@@ -202,7 +212,9 @@ copied:
         SNZ R7
         JMP checksum
         ADI R5,R5,1
-        ADI R0,R5,-19
+        LRM R0,[RZR+Sectors]
+        ADI R0,R0,1
+        SUB R0,R5,R0
         SNZ R0
         JMP next_track
         JMP read_sector

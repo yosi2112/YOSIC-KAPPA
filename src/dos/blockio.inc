@@ -38,6 +38,23 @@ core_block:
         PSH R8
         ADD R8,SP,RZR
         PSH R11
+        LRM R0,[R8+8]
+        SNZ R0
+        JMP io_begin
+        LRM R0,[R8+12]
+        REPT 9
+        ADD R0,R0,R0
+        ENDM
+        Const R1,50000h
+        ADD R0,R0,R1
+        LRM R0,[R0+40]
+        SNZ R0
+        JMP io_begin
+        ADI R0,RZR,19
+        POP R11
+        POP R8
+        JMP return_sub
+io_begin:
         LRM R0,[R8+20]
         SRM R0,[RZR+4b00h]
         LRM R0,[R8+16]
@@ -47,12 +64,28 @@ core_block:
         LRM R0,[R8+8]
         SRM R0,[RZR+4b0ch]
         SRM RZR,[RZR+4b24h]
+        LRM R0,[RZR+4b08h]
+        REPT 9
+        ADD R0,R0,R0
+        ENDM
+        Const R1,50000h
+        ADD R0,R0,R1
+        LRM R3,[R0+48]
+        SNZ R3
+        JMP io_default_spt
+        SRM R3,[RZR+4b2ch]
+        JMP io_spt_ready
+io_default_spt:
+        ADI R3,RZR,18
+        SRM R3,[RZR+4b2ch]
+io_spt_ready:
         LRM R0,[RZR+4b00h]
-        ADI R1,RZR,36
+        LRM R1,[RZR+4b2ch]
+        ADD R1,R1,R1
         Call core_div
         SRM R0,[RZR+4b10h]
         ADD R0,R1,RZR
-        ADI R1,RZR,18
+        LRM R1,[RZR+4b2ch]
         Call core_div
         SRM R0,[RZR+4b14h]
         ADI R1,R1,1
@@ -172,7 +205,8 @@ io_command_args:
         LRM R3,[RZR+4b18h]
         IOSendReg R3
         IOSend 2
-        IOSend 18
+        LRM R3,[RZR+4b2ch]
+        IOSendReg R3
         IOSend 1bh
         IOSend 0ffh
         LRM R9,[RZR+4b04h]
@@ -241,7 +275,8 @@ io_result:
         ORR R7,R7,R3
         LRM R11,[RZR+4b10h]
         LRM R3,[RZR+4b18h]
-        ADI R1,R3,-18
+        LRM R1,[RZR+4b2ch]
+        SUB R1,R3,R1
         SRZ R1
         JMP io_result_c
         ADI R11,R11,1
@@ -255,7 +290,9 @@ io_result_c:
         ORR R7,R7,R3
         LRM R11,[RZR+4b18h]
         ADI R11,R11,1
-        ADI R1,R11,-19
+        LRM R1,[RZR+4b2ch]
+        ADI R1,R1,1
+        SUB R1,R11,R1
         SRZ R1
         JMP io_result_r
         ADI R11,RZR,1
@@ -286,6 +323,22 @@ io_error:
         SRM R0,[RZR+4b24h]
 io_finish:
         SRM RZR,[R10+10ch]
+        LRM R0,[RZR+4b24h]
+        SRZ R0
+        JMP io_return
+        LRM R0,[R8+8]
+        SNZ R0
+        JMP io_return
+        LRM R7,[R8+12]
+        REPT 9
+        ADD R7,R7,R7
+        ENDM
+        Const R0,50000h
+        ADD R7,R7,R0
+        LRM R0,[R8+20]
+        LRM R1,[R8+16]
+        Call core_media_written
+io_return:
         LRM R0,[RZR+4b24h]
         POP R11
         POP R8

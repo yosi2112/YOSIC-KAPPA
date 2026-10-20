@@ -217,7 +217,7 @@ void DiskMounts::save_unit(unsigned unit, Fdc &fdc) {
 }
 void DiskMounts::attach(Fdc &fdc, unsigned unit, const std::filesystem::path &source) {
     if (!fdc.can_change_media(unit))
-        throw std::runtime_error("drive busy or locked; finish the guest disk operation first");
+        throw std::runtime_error("FDC busy; finish the disk transfer first");
     if (source.empty() || !known(source))
         throw std::invalid_argument("disk extension must be .img, .d88 or .kfd");
     Mount replacement;
@@ -243,7 +243,7 @@ void DiskMounts::attach(Fdc &fdc, unsigned unit, const std::filesystem::path &so
 }
 void DiskMounts::detach(Fdc &fdc, unsigned unit) {
     if (!fdc.can_change_media(unit))
-        throw std::runtime_error("drive busy or locked; finish the guest disk operation first");
+        throw std::runtime_error("FDC busy; finish the disk transfer first");
     if (!fdc.drives[unit].disk)
         return;
     save_unit(unit, fdc);

@@ -451,6 +451,9 @@ core_while_36:
         ADI R1,RZR,0
         SRM R1,[R0]
         LRM R0,[R8-8]
+        SRM RZR,[R0+40]
+        SRM RZR,[R0+44]
+        LRM R0,[R8-8]
         ADI R0,R0,64
         ADI R1,RZR,92
         SRM R1,[R0]
@@ -529,7 +532,9 @@ core_if_end_44:
         LRM R0,[R12+core_literal_46-8000h]
         LRM R1,[R8-40]
         SRM R1,[R0]
-        Call core_media_refresh
+        Call core_media_check
+        SRZ R0
+        JMP core_return_42
         LRM R0,[R8-40]
         ADI R0,R0,4
         LRM R0,[R0]
@@ -555,6 +560,14 @@ core_bool_end_49:
         JMP core_if_end_48
 core_else_47:
 core_if_end_48:
+        LRM R0,[R8-40]
+        ADI R0,R0,48
+        ADI R1,RZR,18
+        SRM R1,[R0]
+        LRM R0,[R8-40]
+        ADI R0,R0,36
+        ADI R1,RZR,1
+        SRM R1,[R0]
         ADI R0,RZR,0
         PSH R0
         LRM R0,[R12+core_literal_50-8000h]
@@ -621,6 +634,12 @@ core_if_end_52:
 core_bool_end_55:
         SNZ R0
         JMP core_else_53
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,28
+        LRM R0,[R0]
+        LRM R1,[R8-40]
+        ADI R1,R1,48
+        SRM R0,[R1]
         ADI R0,RZR,162
         SRM R0,[R8-36]
         LRM R0,[R8-36]
@@ -650,6 +669,15 @@ core_if_end_57:
         JMP core_if_end_54
 core_else_53:
 core_if_end_54:
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,44
+        PSH R0
+        Call core_le16
+        ADI SP,SP,4
+        ADI R1,RZR,1024
+        SUB R1,R0,R1
+        SNZ R1
+        JMP core_pc98_normalize
         LRM R0,[R12+core_literal_50-8000h]
         ADI R0,R0,44
         PSH R0
@@ -688,6 +716,81 @@ core_bool_end_60:
         JMP core_if_end_59
 core_else_58:
 core_if_end_59:
+        ; Normalize PC-98 1024-byte BPB units to the DOS 512-byte block view.
+        ; The FDC exposes each physical sector as two adjacent logical sectors.
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,44
+        PSH R0
+        Call core_le16
+        ADI SP,SP,4
+        ADI R1,RZR,1024
+        SUB R1,R0,R1
+        SNZ R1
+        JMP core_pc98_normalize
+        JMP core_pc98_normalized
+core_pc98_normalize:
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,44
+        PSH R0
+        ADI R0,RZR,512
+        PSH R0
+        Call core_set16
+        ADI SP,SP,8
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,52
+        ADI R1,RZR,2
+        SRM R1,[R0]
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,56
+        PSH R0
+        ADI R0,RZR,2
+        PSH R0
+        Call core_set16
+        ADI SP,SP,8
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,76
+        PSH R0
+        ADI R0,RZR,2464
+        PSH R0
+        Call core_set16
+        ADI SP,SP,8
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,88
+        PSH R0
+        ADI R0,RZR,4
+        PSH R0
+        Call core_set16
+        ADI SP,SP,8
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,96
+        PSH R0
+        ADI R0,RZR,16
+        PSH R0
+        Call core_set16
+        ADI SP,SP,8
+        LRM R0,[R8-40]
+        ADI R0,R0,48
+        ADI R1,RZR,16
+        SRM R1,[R0]
+        LRM R0,[R8-40]
+        ADI R0,R0,36
+        ADI R1,RZR,2
+        SRM R1,[R0]
+core_pc98_normalized:
+        LRM R0,[R12+core_literal_50-8000h]
+        ADI R0,R0,96
+        PSH R0
+        Call core_le16
+        ADI SP,SP,4
+        LRM R1,[R8-40]
+        ADI R1,R1,48
+        LRM R1,[R1]
+        SUB R0,R0,R1
+        SNZ R0
+        JMP core_spt_match
+        ADI R0,RZR,13
+        JMP core_return_42
+core_spt_match:
         LRM R0,[R12+core_literal_50-8000h]
         ADI R0,R0,56
         PSH R0
@@ -781,7 +884,18 @@ core_if_end_62:
         LRM R0,[R8-48]
         LRM R1,[R8-36]
         ADD R0,R0,R1
+        LRM R1,[R8-40]
+        ADI R1,R1,48
+        LRM R1,[R1]
+        ADI R2,RZR,16
+        SUB R2,R1,R2
+        SRZ R2
+        JMP core_capacity_144
+        ADI R1,RZR,2464
+        JMP core_capacity_ready
+core_capacity_144:
         ADI R1,RZR,2880
+core_capacity_ready:
         SUB R1,R1,R0
         ADI R0,RZR,0
         LRM R2,[R12+core_literal_10-8000h]
@@ -858,6 +972,12 @@ core_if_end_68:
         ADD R0,R0,R1
         LRM R1,[R8-8]
         SUB R0,R0,R1
+        SRM R0,[R8-4]
+        LRM R0,[R8-4]
+        LRM R1,[R8-40]
+        ADI R1,R1,36
+        LRM R1,[R1]
+        Call core_div
         SRM R0,[R8-4]
         LRM R0,[R8-4]
         ADI R1,RZR,1
@@ -1036,7 +1156,7 @@ core_if_end_79:
         ADD R1,R0,RZR
         POP R0
         SRM R1,[R0]
-        ADI R0,RZR,0
+        Call core_media_check
         JMP core_return_42
         ADI R0,RZR,0
 core_return_42:
@@ -1520,8 +1640,13 @@ core_else_110:
         LRM R0,[R0]
         SRM R0,[R8-4]
 core_while_114:
-        LRM R0,[R8+8]
+        LRM R0,[R8-12]
+        ADI R0,R0,36
+        LRM R0,[R0]
         ADI R1,RZR,16
+        Call core_mul
+        ADD R1,R0,RZR
+        LRM R0,[R8+8]
         SUB R1,R0,R1
         ADI R0,RZR,0
         LRM R2,[R12+core_literal_10-8000h]
@@ -1581,7 +1706,14 @@ core_if_end_119:
         ADI R0,R0,-1
         SRM R0,[R8-4]
         LRM R0,[R8+8]
-        ADI R0,R0,-16
+        PSH R0
+        LRM R0,[R8-12]
+        LRM R0,[R0+36]
+        ADI R1,RZR,16
+        Call core_mul
+        ADD R1,R0,RZR
+        POP R0
+        SUB R0,R0,R1
         SRM R0,[R8+8]
         JMP core_while_114
 core_while_end_115:
@@ -1612,9 +1744,23 @@ core_if_end_122:
         LRM R0,[R8-12]
         ADI R0,R0,28
         LRM R0,[R0]
-        LRM R1,[R8+12]
-        ADD R0,R0,R1
+        PSH R0
+        LRM R0,[R8+12]
         ADI R0,R0,-2
+        LRM R1,[R8-12]
+        ADI R1,R1,36
+        LRM R1,[R1]
+        Call core_mul
+        ADD R1,R0,RZR
+        POP R0
+        ADD R0,R0,R1
+        PSH R0
+        LRM R0,[R8+8]
+        ADI R1,RZR,16
+        Call core_div
+        ADD R1,R0,RZR
+        POP R0
+        ADD R0,R0,R1
         SRM R0,[R8-8]
 core_if_end_111:
         LRM R0,[R8-8]
@@ -1646,6 +1792,169 @@ core_if_end_124:
         JMP core_return_109
         ADI R0,RZR,0
 core_return_109:
+        ADD SP,R8,RZR
+        POP R8
+        JMP return_sub
+core_cluster_lba:
+        PSH R8
+        ADD R8,SP,RZR
+        LRM R0,[R8+8]
+        ADI R0,R0,-2
+        LRM R1,[R12+core_literal_46-8000h]
+        LRM R1,[R1]
+        ADI R1,R1,36
+        LRM R1,[R1]
+        Call core_mul
+        LRM R1,[R12+core_literal_46-8000h]
+        LRM R1,[R1]
+        ADI R1,R1,28
+        LRM R1,[R1]
+        ADD R0,R0,R1
+        ADD SP,R8,RZR
+        POP R8
+        JMP return_sub
+; R8+8 cluster, R8+12 state pointer. Returns that cluster's first 512-byte LBA.
+core_cluster_lba_state:
+        PSH R8
+        ADD R8,SP,RZR
+        LRM R0,[R8+8]
+        ADI R0,R0,-2
+        LRM R1,[R8+12]
+        ADI R1,R1,36
+        LRM R1,[R1]
+        Call core_mul
+        LRM R1,[R8+12]
+        ADI R1,R1,28
+        LRM R1,[R1]
+        ADD R0,R0,R1
+        ADD SP,R8,RZR
+        POP R8
+        JMP return_sub
+; Copy a file as logical 512-byte sectors across independently sized clusters.
+; Arguments: source state, destination state, source chain, destination chain,
+; byte size, source drive, destination drive.
+core_copy_sectors:
+        PSH R8
+        ADD R8,SP,RZR
+        ADI SP,SP,-48
+        LRM R0,[R8+8]
+        SRM R0,[R8-16]
+        LRM R0,[R8+12]
+        SRM R0,[R8-20]
+        LRM R0,[R8+28]
+        SRM R0,[R8-24]
+        LRM R0,[R8+32]
+        SRM R0,[R8-28]
+        LRM R0,[R8+24]
+        ADI R0,R0,511
+        ADI R1,RZR,512
+        Call core_div
+        SRM R0,[R8-44]
+        LRM R0,[R8-16]
+        ADI R0,R0,36
+        LRM R0,[R0]
+        SRM R0,[R8-8]
+        LRM R0,[R8-20]
+        ADI R0,R0,36
+        LRM R0,[R0]
+        SRM R0,[R8-12]
+        ADI R0,RZR,0
+        SRM R0,[R8-4]
+core_copy_sectors_loop:
+        LRM R0,[R8-4]
+        LRM R1,[R8-44]
+        SUB R1,R0,R1
+        ADI R0,RZR,0
+        LRM R2,[R12+core_literal_10-8000h]
+        ANL R1,R1,R2
+        SRZ R1
+        ADI R0,RZR,1
+        SNZ R0
+        JMP core_copy_sectors_done
+        LRM R0,[R8-4]
+        LRM R1,[R8-8]
+        Call core_div
+        SRM R1,[R8-48]
+        ADD R0,R0,R0
+        ADD R0,R0,R0
+        ADD R1,R0,RZR
+        LRM R0,[R8+16]
+        ADD R0,R0,R1
+        LRM R0,[R0]
+        PSH R0
+        LRM R0,[R8-16]
+        PSH R0
+        Call core_cluster_lba_state
+        ADI SP,SP,8
+        LRM R1,[R8-48]
+        ADD R0,R0,R1
+        SRM R0,[R8-32]
+        LRM R0,[R8-4]
+        LRM R1,[R8-12]
+        Call core_div
+        SRM R1,[R8-48]
+        ADD R0,R0,R0
+        ADD R0,R0,R0
+        ADD R1,R0,RZR
+        LRM R0,[R8+20]
+        ADD R0,R0,R1
+        LRM R0,[R0]
+        PSH R0
+        LRM R0,[R8-20]
+        PSH R0
+        Call core_cluster_lba_state
+        ADI SP,SP,8
+        LRM R1,[R8-48]
+        ADD R0,R0,R1
+        SRM R0,[R8-36]
+        ADI R0,RZR,0
+        PSH R0
+        LRM R0,[R8-24]
+        PSH R0
+        LRM R0,[R12+core_literal_676-8000h]
+        PSH R0
+        LRM R0,[R8-32]
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRM R0,[R8-40]
+        LRM R1,[R8-40]
+        ADI R0,RZR,0
+        SUB R1,R1,R0
+        ADI R0,RZR,0
+        SNZ R1
+        ADI R0,RZR,1
+        SNZ R0
+        JMP core_copy_sectors_error
+        ADI R0,RZR,1
+        PSH R0
+        LRM R0,[R8-28]
+        PSH R0
+        LRM R0,[R12+core_literal_676-8000h]
+        PSH R0
+        LRM R0,[R8-36]
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRM R0,[R8-40]
+        LRM R1,[R8-40]
+        ADI R0,RZR,0
+        SUB R1,R1,R0
+        ADI R0,RZR,0
+        SNZ R1
+        ADI R0,RZR,1
+        SNZ R0
+        JMP core_copy_sectors_error
+        LRM R0,[R8-4]
+        ADI R0,R0,1
+        SRM R0,[R8-4]
+        JMP core_copy_sectors_loop
+core_copy_sectors_error:
+        LRM R0,[R8-40]
+        JMP core_copy_sectors_return
+core_copy_sectors_done:
+        ADI R0,RZR,0
+core_copy_sectors_return:
         ADD SP,R8,RZR
         POP R8
         JMP return_sub
@@ -3380,12 +3689,10 @@ core_while_end_291:
         PSH R0
         Call core_set16
         ADI SP,SP,8
-        LRM R0,[R8-28]
-        ADI R0,R0,28
-        LRM R0,[R0]
-        LRM R1,[R8-4]
-        ADD R0,R0,R1
-        ADI R0,R0,-2
+        LRM R0,[R8-4]
+        PSH R0
+        Call core_cluster_lba
+        ADI SP,SP,4
         PSH R0
         LRM R0,[R12+core_literal_289-8000h]
         PSH R0
@@ -3417,6 +3724,37 @@ core_while_end_291:
         JMP core_if_end_293
 core_else_292:
 core_if_end_293:
+        LRM R0,[R8-28]
+        ADI R0,R0,36
+        LRM R0,[R0]
+        ADI R1,RZR,2
+        SUB R1,R0,R1
+        SNZ R1
+        JMP core_mkdir_cluster_ready
+        LRM R0,[R12+core_literal_289-8000h]
+        PSH R0
+        ADI R0,RZR,512
+        PSH R0
+        Call core_clear
+        ADI SP,SP,8
+        LRM R0,[R8-16]
+        ADI R0,R0,1
+        PSH R0
+        LRM R0,[R12+core_literal_289-8000h]
+        PSH R0
+        LRM R0,[R8-28]
+        LRM R0,[R0]
+        PSH R0
+        ADI R0,RZR,1
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRM R0,[R8-32]
+        SNZ R0
+        JMP core_mkdir_cluster_ready
+        LRM R0,[R8-32]
+        JMP core_return_275
+core_mkdir_cluster_ready:
         Call core_fatflush
         SRM R0,[R8-32]
         LRM R0,[R8-32]
@@ -4112,7 +4450,6 @@ core_return_336:
         POP R8
         JMP return_sub
 core_fs_command:
-        MediaLock
         PSH R8
         ADD R8,SP,RZR
         ADI SP,SP,-4
@@ -4443,7 +4780,6 @@ core_if_end_439:
         JMP core_return_384
         ADI R0,RZR,0
 core_return_384:
-        MediaUnlock
         ADD SP,R8,RZR
         POP R8
         JMP return_sub
@@ -5499,19 +5835,17 @@ core_while_end_529:
         JMP core_if_end_534
 core_else_533:
 core_if_end_534:
+        LRM R0,[R8-8]
+        PSH R0
+        Call core_cluster_lba
+        ADI SP,SP,4
+        SRM R0,[R8-16]
         LRM R0,[R12+core_literal_289-8000h]
         PSH R0
         ADI R0,RZR,512
         PSH R0
         Call core_clear
         ADI SP,SP,8
-        LRM R0,[R8-20]
-        ADI R0,R0,28
-        LRM R0,[R0]
-        LRM R1,[R8-8]
-        ADD R0,R0,R1
-        ADI R0,R0,-2
-        SRM R0,[R8-16]
         LRM R0,[R8-16]
         PSH R0
         LRM R0,[R12+core_literal_289-8000h]
@@ -5528,10 +5862,46 @@ core_if_end_534:
         ADI R1,RZR,0
         SUB R1,R0,R1
         ADI R0,RZR,0
+        SNZ R1
+        ADI R0,RZR,1
+        SNZ R0
+        JMP core_free_entry_zero_failed
+        LRM R0,[R8-20]
+        ADI R0,R0,36
+        LRM R0,[R0]
+        ADI R1,RZR,2
+        SUB R1,R0,R1
+        SNZ R1
+        JMP core_free_entry_zero_done
+        LRM R0,[R12+core_literal_289-8000h]
+        PSH R0
+        ADI R0,RZR,512
+        PSH R0
+        Call core_clear
+        ADI SP,SP,8
+        LRM R0,[R8-16]
+        ADI R0,R0,1
+        PSH R0
+        LRM R0,[R12+core_literal_289-8000h]
+        PSH R0
+        LRM R0,[R8-20]
+        LRM R0,[R0]
+        PSH R0
+        ADI R0,RZR,1
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRM R0,[R8-24]
+core_free_entry_zero_done:
+        LRM R0,[R8-24]
+        ADI R1,RZR,0
+        SUB R1,R0,R1
+        ADI R0,RZR,0
         SRZ R1
         ADI R0,RZR,1
         SNZ R0
         JMP core_else_535
+core_free_entry_zero_failed:
         LRM R0,[R8-8]
         PSH R0
         ADI R0,RZR,0
@@ -5618,6 +5988,10 @@ core_chain_load:
         PSH R0
         LRM R0,[R8-8]
         ADI R1,RZR,512
+        Call core_mul
+        LRM R1,[R8-12]
+        ADI R1,R1,36
+        LRM R1,[R1]
         Call core_mul
         ADD R1,R0,RZR
         POP R0
@@ -5810,6 +6184,10 @@ core_if_end_556:
 core_while_end_554:
         LRM R0,[R8-4]
         ADI R1,RZR,512
+        Call core_mul
+        LRM R1,[R8-12]
+        ADI R1,R1,36
+        LRM R1,[R1]
         Call core_mul
         LRM R1,[R8+12]
         SUB R1,R0,R1
@@ -6454,7 +6832,7 @@ core_return_619:
 core_copy_one:
         PSH R8
         ADD R8,SP,RZR
-        ADI SP,SP,-64
+        ADI SP,SP,-72
         LRM R0,[R8+24]
         PSH R0
         Call core_select
@@ -6802,9 +7180,17 @@ core_if_end_646:
         LRM R1,[R12+core_literal_106-8000h]
         SUB R0,R0,R1
         SRM R0,[R8-16]
-        LRM R0,[R8-48]
-        ADI R0,R0,511
+        LRM R0,[R8-20]
+        ADI R0,R0,36
+        LRM R0,[R0]
         ADI R1,RZR,512
+        Call core_mul
+        SRM R0,[R8-68]
+        LRM R0,[R8-48]
+        LRM R1,[R8-68]
+        ADI R1,R1,-1
+        ADD R0,R0,R1
+        LRM R1,[R8-68]
         Call core_div
         SRM R0,[R8-8]
         ADI R0,RZR,0
@@ -6900,84 +7286,24 @@ core_while_end_666:
         JMP core_if_end_673
 core_else_672:
 core_if_end_673:
-        ADI R0,RZR,0
-        SRM R0,[R8-36]
-core_while_674:
-        LRM R0,[R8-36]
-        LRM R1,[R8-8]
-        SUB R1,R0,R1
-        ADI R0,RZR,0
-        LRM R2,[R12+core_literal_10-8000h]
-        ANL R1,R1,R2
-        SRZ R1
-        ADI R0,RZR,1
-        SNZ R0
-        JMP core_while_end_675
-        LRM R0,[R8-60]
-        ADI R0,R0,28
+        LRM R0,[R8-20]
         LRM R0,[R0]
-        PSH R0
-        LRM R0,[R12+core_literal_636-8000h]
-        PSH R0
-        LRM R0,[R8-36]
-        ADD R0,R0,R0
-        ADD R0,R0,R0
-        ADD R1,R0,RZR
-        POP R0
-        ADD R0,R0,R1
-        LRM R0,[R0]
-        ADD R1,R0,RZR
-        POP R0
-        ADD R0,R0,R1
-        ADI R0,R0,-2
-        PSH R0
-        LRM R0,[R12+core_literal_676-8000h]
         PSH R0
         LRM R0,[R8+24]
         PSH R0
-        ADI R0,RZR,0
-        PSH R0
-        Call core_block
-        ADI SP,SP,16
-        SRM R0,[R8-64]
-        LRM R0,[R8-64]
-        ADI R1,RZR,0
-        SUB R1,R0,R1
-        ADI R0,RZR,0
-        SNZ R1
-        ADI R0,RZR,1
-        SNZ R0
-        JMP core_else_677
-        LRM R0,[R8-24]
-        ADI R0,R0,28
-        LRM R0,[R0]
+        LRM R0,[R8-48]
         PSH R0
         LRM R0,[R12+core_literal_669-8000h]
         PSH R0
-        LRM R0,[R8-36]
-        ADD R0,R0,R0
-        ADD R0,R0,R0
-        ADD R1,R0,RZR
-        POP R0
-        ADD R0,R0,R1
-        LRM R0,[R0]
-        ADD R1,R0,RZR
-        POP R0
-        ADD R0,R0,R1
-        ADI R0,R0,-2
-        PSH R0
-        LRM R0,[R12+core_literal_676-8000h]
+        LRM R0,[R12+core_literal_636-8000h]
         PSH R0
         LRM R0,[R8-20]
         PSH R0
-        ADI R0,RZR,1
+        LRM R0,[R8-60]
         PSH R0
-        Call core_block
-        ADI SP,SP,16
+        Call core_copy_sectors
+        ADI SP,SP,28
         SRM R0,[R8-64]
-        JMP core_if_end_678
-core_else_677:
-core_if_end_678:
         LRM R0,[R8-64]
         ADI R1,RZR,0
         SUB R1,R0,R1
@@ -6985,7 +7311,7 @@ core_if_end_678:
         SRZ R1
         ADI R0,RZR,1
         SNZ R0
-        JMP core_else_679
+        JMP core_copy_data_done
         LRM R0,[R8-64]
         SRM R0,[R8-32]
         LRM R0,[R8-20]
@@ -6998,7 +7324,7 @@ core_if_end_678:
         SNZ R1
         ADI R0,RZR,1
         SNZ R0
-        JMP core_else_681
+        JMP core_copy_data_return_error
         LRM R0,[R12+core_literal_669-8000h]
         PSH R0
         LRM R0,[R8-8]
@@ -7006,19 +7332,10 @@ core_if_end_678:
         Call core_free_chain
         ADI SP,SP,8
         Call core_fatflush
-        JMP core_if_end_682
-core_else_681:
-core_if_end_682:
+core_copy_data_return_error:
         LRM R0,[R8-32]
         JMP core_return_627
-        JMP core_if_end_680
-core_else_679:
-core_if_end_680:
-        LRM R0,[R8-36]
-        ADI R0,R0,1
-        SRM R0,[R8-36]
-        JMP core_while_674
-core_while_end_675:
+core_copy_data_done:
         LRM R0,[R8-12]
         PSH R0
         Call core_read_dir_sector

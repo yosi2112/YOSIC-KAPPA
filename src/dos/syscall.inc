@@ -19,7 +19,6 @@ syscall_entry:
         SRM R12,[RZR+4d28h]
         SRM R13,[RZR+4d2ch]
         SRM SP,[RZR+4d30h]
-        MediaLock
         LRM R7,[RZR+4d14h]
         LRM SP,[RZR+4c28h]
         Const R10,0fe0000h
@@ -165,7 +164,6 @@ syscall_parameter:
 syscall_result:
         SRM R0,[RZR+4d34h]
 syscall_return:
-        MediaUnlock
         ; Reuse the launch trampoline while keeping entry FFF0/FFF4 intact.
         LRM R0,[RZR+4d14h]
         ADI R0,R0,4

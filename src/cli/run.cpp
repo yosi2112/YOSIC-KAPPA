@@ -217,8 +217,15 @@ int run_cli(int argc, char *argv[]) {
                 }
             }
             if (interrupted) {
-                reason = "interrupted";
-                break;
+                if (interactive && (!hardware || debugger.accepts_guest_input()) &&
+                    !console.input_closed()) {
+                    const std::uint8_t cancel = 3;
+                    console.feed(std::span<const std::uint8_t>(&cancel, 1));
+                    interrupted = 0;
+                } else {
+                    reason = "interrupted";
+                    break;
+                }
             }
             // Monitor and keyboard polling are host work, not guest instructions.
             // Batch them to avoid an OS console call for every emulated instruction.
@@ -235,10 +242,6 @@ int run_cli(int argc, char *argv[]) {
                     input_poll = now + std::chrono::milliseconds(2);
                     while (_kbhit()) {
                         const auto ch = _getch();
-                        if (ch == 3) {
-                            interrupted = 1;
-                            break;
-                        }
                         if (ch == 26) {
                             console.close_input();
                             break;

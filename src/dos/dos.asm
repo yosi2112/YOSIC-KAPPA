@@ -101,12 +101,15 @@ poll:
         ORR R2,R3,R5
         SRZ R2
         JMP finish_line
-; Tests break here rather than interpreting a host instruction limit as success.
+; Batch input has reached EOF; retain the shell state at this address.
 input_done:
         JMP input_done
 
 receive:
         LRM R1,[R10+4]
+        ADI R2,R1,-3
+        SNZ R2
+        JMP disk_reset
         ADI R2,R1,-10
         SNZ R2
         JMP line_feed
@@ -192,6 +195,12 @@ dispatch:
         JMP new_line
 cmd_dir: ADI R0,RZR,1
         JMP run_command
+disk_reset:
+        NewLine
+        Call core_init
+        Call file_reset
+        ADI R6,RZR,0
+        JMP new_line
 cmd_mkdir: ADI R0,RZR,2
         JMP run_command
 cmd_rmdir: ADI R0,RZR,3

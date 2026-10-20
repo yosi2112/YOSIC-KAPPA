@@ -23,12 +23,9 @@ class Fdc {
     bool can_change_media(unsigned unit) const;
     void change_media(unsigned unit, std::shared_ptr<media::Disk> disk, bool read_only,
                       bool double_sided);
-    std::uint32_t media_locks() const { return media_locks_; }
-    void media_locks(std::uint32_t value);
 
   private:
     Clock &clock_;
-    std::uint32_t media_locks_ = 0;
     std::shared_ptr<int> life_ = std::make_shared<int>(0);
     Phase phase_ = Phase::idle;
     std::vector<std::uint8_t> command_;
@@ -44,7 +41,7 @@ class Fdc {
     std::uint8_t specify1_ = 0, specify2_ = 0, op_ = 0, st1_ = 0, st2_ = 0;
     std::array<std::uint8_t, 4> id_{};
     unsigned unit_ = 0, head_ = 0, poll_unit_ = 0, track_count_ = 0, format_count_ = 0;
-    std::size_t sector_ = 0, offset_ = 0, transfer_ = 0;
+    std::size_t sector_ = 0, offset_ = 0, transfer_ = 0, sector_offset_ = 0;
     std::uint8_t latch_ = 0;
     bool reset_ = false, slow_ = false, request_ = false, drq_ = false, result_irq_ = false;
     bool reading_ = false, tc_ = false, scan_equal_ = true, scan_low_ = true, scan_high_ = true;
