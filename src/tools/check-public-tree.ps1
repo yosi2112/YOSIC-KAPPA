@@ -21,6 +21,7 @@ if (($top -join '|') -cne (($allowed | Sort-Object) -join '|')) {
 }
 foreach ($path in $paths) {
     if ($path -match '(^|/)(\.git|\.codex|\.agents|__pycache__|CMakeFiles|CMakeCache\.txt|build-tools\.md|Agents\.md)(/|$)' -or
+        $path -match '(^|/)(tests?|local-tests)(/|$)' -or
         $path -match '\.(exe|obj|pdb|lib|zip|pyc)$' -or
         ($path -match '^src/' -and $path -match '\.md$')) {
         throw "Private, generated or misplaced documentation file: $path"
