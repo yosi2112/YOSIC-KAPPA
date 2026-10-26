@@ -1,15 +1,22 @@
+; Compact kernel literal load; signed R12 bias spans the complete segment.
+ExecConst MACRO reg,value
+        LRM reg,[R12+literal-8000h]
+        JMP next
+literal: DD value
+next:
+        ENDM
 ; Independent YKE1 loader. The existing core.inc remains a canonical input.
 ; Scratch 4C00h..4C38h; packed staging 90000h; application CS=8.
 ; Every FAT chain and the entire header/payload are validated before launch.
 ExecArg MACRO value
-        Const R0,value
+        ExecConst R0,value
         PSH R0
         ENDM
 
 exec_command:
         PSH R6
         SRM RZR,[RZR+4c30h]
-        Const R0,13fe4h
+        ExecConst R0,13fe4h
         SRM RZR,[R0]
         LRM R8,[SP+8]
         ADI R9,RZR,6000h
@@ -107,11 +114,11 @@ exec_resolve:
         ADI SP,SP,8
         SRZ R0
         JMP exec_error
-        Const R1,13fcch
+        ExecConst R1,13fcch
         LRM R0,[R1]
         SRZ R0
         JMP exec_denied
-        Const R1,13fc4h
+        ExecConst R1,13fc4h
         LRM R1,[R1]
         LRM R0,[R1+44]
         ADI R2,RZR,24
@@ -124,7 +131,7 @@ exec_resolve:
         ADI SP,SP,4
         SRM R0,[RZR+4c04h]
         ; Check signed bit before comparisons; file size is 28..65544.
-        Const R1,80000000h
+        ExecConst R1,80000000h
         ANL R2,R0,R1
         SRZ R2
         JMP exec_format
@@ -132,7 +139,7 @@ exec_resolve:
         ANL R2,R2,R1
         SRZ R2
         JMP exec_format
-        Const R2,65544
+        ExecConst R2,65544
         SUB R2,R2,R0
         ANL R2,R2,R1
         SRZ R2
@@ -145,7 +152,7 @@ exec_resolve:
         ADI R1,RZR,512
         Call core_div
         SRM R0,[RZR+4c08h]
-        Const R1,13fc4h
+        ExecConst R1,13fc4h
         LRM R1,[R1]
         ADI R0,R1,104
         PSH R0
@@ -157,7 +164,7 @@ exec_resolve:
         ExecArg 64000h
         Call core_chain_load
         ADI SP,SP,12
-        Const R1,80000000h
+        ExecConst R1,80000000h
         ANL R1,R0,R1
         SRZ R1
         JMP exec_disk_error
@@ -166,17 +173,17 @@ exec_resolve:
         SRZ R1
         JMP exec_data_error
         SRM RZR,[RZR+4c0ch]
-        Const R0,90000h
+        ExecConst R0,90000h
         SRM R0,[RZR+4c10h]
 exec_sector:
         LRM R0,[RZR+4c0ch]
         ADD R0,R0,R0
         ADD R0,R0,R0
-        Const R1,64000h
+        ExecConst R1,64000h
         ADD R1,R1,R0
         LRM R0,[R1]
         ADI R0,R0,-2
-        Const R1,13fe0h
+        ExecConst R1,13fe0h
         LRM R1,[R1]
         LRM R2,[R1+28]
         ADD R0,R0,R2
@@ -191,7 +198,7 @@ exec_sector:
         ADI SP,SP,16
         SRZ R0
         JMP exec_error
-        Const R0,30000h
+        ExecConst R0,30000h
         SRM R0,[RZR+4c14h]
         ADI R0,RZR,128
         SRM R0,[RZR+4c18h]
@@ -204,7 +211,7 @@ exec_pack:
         SRM R0,[R1]
         ADI R1,R1,4
         SRM R1,[RZR+4c10h]
-        Const R0,90000h
+        ExecConst R0,90000h
         LRM R2,[RZR+4c04h]
         ADD R0,R0,R2
         SUB R0,R0,R1
@@ -223,9 +230,9 @@ exec_pack:
         SRM R0,[RZR+4c0ch]
         JMP exec_sector
 exec_header:
-        Const R8,90000h
+        ExecConst R8,90000h
         LRM R0,[R8]
-        Const R1,31454b59h
+        ExecConst R1,31454b59h
         SUB R0,R0,R1
         SRZ R0
         JMP exec_format
@@ -245,7 +252,7 @@ exec_header:
         ANL R2,R1,R2
         SRZ R2
         JMP exec_format
-        Const R2,80000000h
+        ExecConst R2,80000000h
         ANL R3,R1,R2
         SRZ R3
         JMP exec_format
@@ -272,16 +279,16 @@ exec_checksum:
         SUB R0,R0,R3
         SRZ R0
         JMP exec_format
-        Const R9,80000h
-        Const R4,65520
+        ExecConst R9,80000h
+        ExecConst R4,65520
 exec_zero:
         SRM RZR,[R9]
         ADI R9,R9,4
         ADI R4,R4,-4
         SRZ R4
         JMP exec_zero
-        Const R8,90018h
-        Const R9,80000h
+        ExecConst R8,90018h
+        ExecConst R9,80000h
         LRM R4,[RZR+4c1ch]
 exec_copy:
         LRM R0,[R8]
@@ -292,7 +299,7 @@ exec_copy:
         SRZ R4
         JMP exec_copy
         LRM R8,[RZR+4c00h]
-        Const R9,0f1000h
+        ExecConst R9,0f1000h
         ADI R2,RZR,0
 exec_args:
         LRM R0,[R8]
@@ -305,18 +312,18 @@ exec_args:
         JMP exec_args
 exec_launch:
         ; Syscall entry at FFF0 sets R5=2; resume uses a NOP/JMP trampoline.
-        Const R1,80050000h
-        Const R9,2fff4h
+        ExecConst R1,80050000h
+        ExecConst R9,2fff4h
         SRM R1,[R9]
-        Const R9,8fff4h
+        ExecConst R9,8fff4h
         SRM R1,[R9]
-        Const R9,8fff8h
+        ExecConst R9,8fff8h
         SRM RZR,[R9]
-        Const R1,44af0002h
-        Const R9,8fff0h
+        ExecConst R1,44af0002h
+        ExecConst R9,8fff0h
         SRM R1,[R9]
         LRM R1,[R12+syscall_entry_jump-8000h]
-        Const R9,2fff8h
+        ExecConst R9,2fff8h
         SRM R1,[R9]
         ; Dynamic JMP from PC=FFFCh to the validated entry offset.
         ; Divide by four via core_div on a positive offset.
@@ -327,20 +334,21 @@ exec_launch:
         PSH R2
         Call core_div
         POP R2
-        Const R1,18000000h
+        ExecConst R1,18000000h
         ORR R0,R0,R1
-        Const R9,8fffch
+        ExecConst R9,8fffch
         SRM R0,[R9]
-        Const R0,0ffffffffh
-        Const R9,2fffch
+        ExecConst R0,0ffffffffh
+        ExecConst R9,2fffch
         SRM R0,[R9]
         SRM SP,[RZR+4c28h]
         PSH R2
+        Call media_enter
         Call file_reset
         POP R2
-        Const SP,0f0000h
-        Const R1,0f1000h
-        Const R9,13ff0h
+        ExecConst SP,0f0000h
+        ExecConst R1,0f1000h
+        ExecConst R9,13ff0h
         LRM R3,[R9]
         ADI R5,RZR,8
         JMP 0fff4h
@@ -355,10 +363,7 @@ exec_return:
         ADI R11,RZR,256
         Const R12,28000h
         Call file_reset
-        Const R1,13ff4h
-        ADI R0,RZR,-1
-        SRM R0,[R1]
-        SRM R0,[R1+4]
+        Call media_leave
         JMP exec_done
 exec_parameter:
         ADI R0,RZR,87
@@ -370,7 +375,7 @@ exec_data_error:
         ADI R0,RZR,13
         JMP exec_error
 exec_disk_error:
-        Const R1,13fe4h
+        ExecConst R1,13fe4h
         LRM R0,[R1]
         SNZ R0
         ADI R0,RZR,13
@@ -388,7 +393,7 @@ exec_error:
         ADI SP,SP,4
 exec_done:
         LRM R0,[RZR+4c30h]
-        Const R1,13f00h
+        ExecConst R1,13f00h
         SRM R0,[R1]
         POP R6
         JMP return_sub
