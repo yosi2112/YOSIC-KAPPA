@@ -91,7 +91,7 @@ fc /b work\input.bin work\output.bin
 bin\yosic-sim.exe --rom work\echo.rom --interactive
 ```
 
-Ctrl+ZはEOF、Ctrl+Cは実行停止です。`--input`と`--interactive`は併用できません。
+Ctrl+Zは1Ahとしてゲストへ渡します。LEDTでは挿入終了や検索・置換の区切りに使います。Ctrl+Cは実行停止です。`--input`と`--interactive`は併用できません。
 端末の文字コードは変換しません。バイト列を正確に確認する場合はファイル入力を使います。
 
 ## 5. ディスクを接続する

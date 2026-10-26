@@ -242,10 +242,6 @@ int run_cli(int argc, char *argv[]) {
                     input_poll = now + std::chrono::milliseconds(2);
                     while (_kbhit()) {
                         const auto ch = _getch();
-                        if (ch == 26) {
-                            console.close_input();
-                            break;
-                        }
                         const std::uint8_t byte = static_cast<std::uint8_t>(ch);
                         console.feed(std::span<const std::uint8_t>(&byte, 1));
                     }
