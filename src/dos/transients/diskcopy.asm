@@ -147,7 +147,7 @@ dc_compare:
         LRM R1,[R13+28]
         SUB R0,R0,R1
         SNZ R0
-        JMP mc_success
+        JMP dc_complete
         LRM R0,[R13+60]
         SRZ R0
         JMP dc_track
@@ -167,6 +167,29 @@ dc_compare:
 dc_data_error:
         ADI R0,RZR,23
         JMP mc_error
+dc_complete:
+        ; Leave both mechanical heads at zero for the next DOS/YKE command.
+        ; A controller reset alone retains C78/79 beyond a single 765 recal.
+        LRM R0,[R13+12]
+        SRM R0,[R13]
+        TrCall dc_home
+        McFail
+        LRM R0,[R13+4]
+        SRM R0,[R13]
+        TrCall dc_home
+        McFail
+        JMP mc_success
+dc_home:
+        LRM R0,[R13+20]
+        SRM R0,[R13+8]
+        McSet 32,0
+        McSet 36,0
+        McSet 40,1
+        TrConst R0,0da000h
+        SRM R0,[R13+44]
+        ADI R0,RZR,2
+        TrCall mc_request
+        JMP tr_return
 dc_advance:
         LRM R0,[R13+44]
         LRM R1,[R13+56]
