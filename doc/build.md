@@ -137,3 +137,28 @@ VSのx64開発環境で`chcp 65001`を実行した後、PowerShellから実行�
 公開ルートは`doc`、`src`、`readme.md`、`license`です。生成物・実行ファイル・ローカル設定・キャッシュは含めません。ソース一式を書き出すには`export-source.ps1 -Destination <新しいフォルダ>`を使用します。
 
 ルートにローカル専用`tests/CMakeLists.txt`が存在する場合、CMakeの`BUILD_TESTING`でその回帰テストも組み込めます。公開ツリーにはこのディレクトリはなく、DOSのテストは上記のPythonスクリプトで実行します。
+
+## 7. トランジェント共通基盤
+
+`src/dos/transients`直下のコマンド用`.asm`をDOSと同じアセンブラで生成し、YKE1形式へ包装して両FD媒体のルートへ収録します。共通ライブラリの`.inc`だけが存在する場合、コマンドは追加されません。出力先は`out/dos/transients`です。媒体に入るのは今回のビルドで選ばれたソースのYKEだけです。
+
+```powershell
+.\src\dos\tools\build.ps1 -PythonPath C:\Python312\python.exe
+```
+
+`-PythonPath`で実行するPythonを、`-ToolDirectory`でアセンブラの場所を指定できます。既定ではPythonランチャーまたはPATHのPythonを使用します。`-TransientSourceDirectory`は別のコマンドソースディレクトリを指定する場合に使います。コマンド名は英数字と`_`の1〜8文字です。INCLUDEはソースを基準に再帰展開し、絶対パスにも対応します。
+
+媒体生成はYKEの名前、重複、サイズ、整列、エントリ位置、ヘッダ、チェックサムを検査し、起動用の予約領域とKAPPA.SYSの後ろへFATチェーンを割り当てます。ルート項目数・媒体容量・FAT12上限を検査し、両媒体が構築できてからファイルを書き出します。追加YKEは`make-image.py <出力ディレクトリ> --transient <コマンド.YKE>`でも明示できます。
+
+現行のYKEローダーは、PC-ATの512バイト物理セクタとPC-98の1024バイト物理セクタの双方で起動できます。DOS内部の512バイトセクタ番号とFATクラスタ番号は、ログイン時のクラスタ長に従って変換します。
+
+| 共通ソース | 責務 |
+|---|---|
+| [common.inc](../src/dos/transients/common.inc) | アプリ内呼出し、既存システムコール、uint32、引数解析、入力編集、ファイルI/O |
+| [fdc.inc](../src/dos/transients/fdc.inc) | 直接FDC操作、両FDの物理セクタ転送・READ ID・FORMAT、期限とidle復帰 |
+| [block-device.inc](../src/dos/transients/block-device.inc) | 内部デバイス記述子、64ビット容量/LBA、物理/論理セクタ、FDバックエンド |
+| [media-return.inc](../src/dos/media-return.inc) | 外部実行前後のBPB・ルートCSV確認と選択的なキャッシュ失効 |
+
+アプリは最初のJMPの後に共通ライブラリをINCLUDEし、入口で`TrInit`を実行します。`TrCall`の呼出先は`tr_return`で復帰します。R6・R8〜R13とSPを保持し、R0〜R5・R7は作業用です。DS/SS/ESは0、R12は`0x88000`、スタックは`0xE0000`〜`0xEFFFF`とします。文字・転送データは1バイトを1語で表します。各関数の引数と上限はソース先頭および関数直前に記載しています。公開ABIは既存の番号だけを使用します。
+
+内部block-device記述子は容量とLBAを下位/上位32ビットで保持し、物理セクタ長とDOSの512バイト論理セクタ長を分けます。現在のバックエンドはFDだけです。HDなど未対応のkindはMMIO操作前にエラー50を返します。FDCの停止は中断後のidle復帰であり、すでに行った書込みを元に戻す処理ではありません。
