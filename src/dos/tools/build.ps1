@@ -1,9 +1,10 @@
-param([string]$ToolDirectory = '', [string]$PythonPath = '')
+param([string]$ToolDirectory = '', [string]$PythonPath = '', [string]$TransientSourceDirectory = '')
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $src = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $out = Join-Path $root 'out/dos'
 if (-not $ToolDirectory) { $ToolDirectory = Join-Path $root 'out/build' }
+if (-not $TransientSourceDirectory) { $TransientSourceDirectory = Join-Path $src 'transients' }
 $assembler = Join-Path $ToolDirectory 'yosic-as.exe'
 if (-not (Test-Path -LiteralPath $assembler)) { throw "Assembler not found: $assembler" }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
@@ -14,6 +15,7 @@ function Expand-Source([string]$path) {
         if ($line -match '^\s*INCLUDE\s+([^;]+)') {
             $name = $Matches[1].Trim().Trim('"')
             if ($name -eq 'kernel.inc') { Expand-Source (Join-Path $out $name) }
+            elseif ([IO.Path]::IsPathRooted($name)) { Expand-Source $name }
             else { Expand-Source (Join-Path (Split-Path $path) $name) }
         } else { $line }
     }
@@ -24,6 +26,19 @@ function Assemble([string]$name) {
     [IO.File]::WriteAllLines($expanded, [string[]](Expand-Source (Join-Path $src "$name.asm")))
     & $assembler $expanded -o (Join-Path $out "$name.bin") --map (Join-Path $out "$name.map")
     if ($LASTEXITCODE -ne 0) { throw "Assembler failed: $name ($LASTEXITCODE)" }
+}
+function Invoke-Python([string[]]$Arguments) {
+    if ($PythonPath) {
+        & $PythonPath @Arguments
+    } else {
+        $pythonLauncher = Get-Command py -ErrorAction SilentlyContinue
+        $python = Get-Command python3 -ErrorAction SilentlyContinue
+        if (-not $python) { $python = Get-Command python -ErrorAction SilentlyContinue }
+        if ($pythonLauncher) { & $pythonLauncher.Source -3 @Arguments }
+        elseif ($python) { & $python.Source @Arguments }
+        else { throw 'Python is required; supply -PythonPath or install Python' }
+    }
+    if ($LASTEXITCODE -ne 0) { throw "Python failed ($LASTEXITCODE): $($Arguments[0])" }
 }
 
 Assemble 'dos'
@@ -51,17 +66,25 @@ if ($assembledLoader.Length -le 8192) { throw 'Loader has no payload at ORG 2000
 [byte[]]$loader = $assembledLoader[8192..($assembledLoader.Length - 1)]
 if ($loader.Length -gt 8192 -or $loader.Length % 4) { throw 'Invalid IPL payload size/alignment' }
 [IO.File]::WriteAllBytes((Join-Path $out 'loader.bin'), $loader)
-$pythonLauncher = if ($PythonPath) { $null } else { Get-Command py -ErrorAction SilentlyContinue }
-if ($PythonPath) {
-    & $PythonPath (Join-Path $PSScriptRoot 'make-image.py') $out
-} elseif ($pythonLauncher) {
-    & $pythonLauncher.Source -3 (Join-Path $PSScriptRoot 'make-image.py') $out
-} else {
-    $python = Get-Command python3 -ErrorAction SilentlyContinue
-    if (-not $python) { $python = Get-Command python -ErrorAction SilentlyContinue }
-    if (-not $python) { throw 'Python is required to generate the image' }
-    & $python.Source (Join-Path $PSScriptRoot 'make-image.py') $out
+# Only top-level command ASM sources participate. Include libraries alone do
+# not create command stubs, and stale YKE outputs are never globbed into media.
+$imageArguments = @((Join-Path $PSScriptRoot 'make-image.py'), $out)
+if (Test-Path -LiteralPath $TransientSourceDirectory) {
+    $transientOut = Join-Path $out 'transients'
+    New-Item -ItemType Directory -Force -Path $transientOut | Out-Null
+    foreach ($source in Get-ChildItem -LiteralPath $TransientSourceDirectory -Filter '*.asm' -File | Sort-Object Name) {
+        $name = $source.BaseName.ToUpperInvariant()
+        if ($name -cnotmatch '^[A-Z0-9_]{1,8}$') { throw "Invalid transient command name: $name" }
+        $expanded = Join-Path $transientOut "$name-expanded.asm"
+        $binary = Join-Path $transientOut "$name.bin"
+        $yke = Join-Path $transientOut "$name.YKE"
+        [IO.File]::WriteAllLines($expanded, [string[]](Expand-Source $source.FullName))
+        & $assembler $expanded -o $binary --map (Join-Path $transientOut "$name.map")
+        if ($LASTEXITCODE -ne 0) { throw "Assembler failed: $name ($LASTEXITCODE)" }
+        Invoke-Python @((Join-Path $PSScriptRoot 'make_yke.py'), $binary, $yke)
+        $imageArguments += @('--transient', $yke)
+    }
 }
-if ($LASTEXITCODE -ne 0) { throw 'Image generation failed' }
+Invoke-Python $imageArguments
 Write-Output "Bootable FAT12 images: $(Join-Path $out 'dos.d88'), $(Join-Path $out 'dos-1.25.d88')"
 Write-Output "Kernel: $($kernel.Length) bytes; loader: $($loader.Length) bytes"

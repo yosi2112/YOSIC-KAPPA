@@ -6,7 +6,7 @@ literal: DD value
 next:
         ENDM
 ; Independent YKE1 loader. The existing core.inc remains a canonical input.
-; Scratch 4C00h..4C38h; packed staging 90000h; application CS=8.
+; Scratch 4C00h..4C40h; packed staging 90000h; application CS=8.
 ; Every FAT chain and the entire header/payload are validated before launch.
 ExecArg MACRO value
         ExecConst R0,value
@@ -168,7 +168,15 @@ exec_resolve:
         ANL R1,R0,R1
         SRZ R1
         JMP exec_disk_error
-        LRM R1,[RZR+4c08h]
+        SRM R0,[RZR+4c3ch]
+        ExecConst R1,13fe0h
+        LRM R1,[R1]
+        LRM R1,[R1+36]
+        LRM R0,[RZR+4c08h]
+        ADD R0,R0,R1
+        ADI R0,R0,-1
+        Call core_div
+        LRM R1,[RZR+4c3ch]
         SUB R1,R0,R1
         SRZ R1
         JMP exec_data_error
@@ -177,6 +185,11 @@ exec_resolve:
         SRM R0,[RZR+4c10h]
 exec_sector:
         LRM R0,[RZR+4c0ch]
+        ExecConst R1,13fe0h
+        LRM R1,[R1]
+        LRM R1,[R1+36]
+        Call core_div
+        SRM R1,[RZR+4c40h]
         ADD R0,R0,R0
         ADD R0,R0,R0
         ExecConst R1,64000h
@@ -185,7 +198,13 @@ exec_sector:
         ADI R0,R0,-2
         ExecConst R1,13fe0h
         LRM R1,[R1]
+        LRM R1,[R1+36]
+        Call core_mul
+        ExecConst R1,13fe0h
+        LRM R1,[R1]
         LRM R2,[R1+28]
+        ADD R0,R0,R2
+        LRM R2,[RZR+4c40h]
         ADD R0,R0,R2
         PSH R0
         LRM R1,[R1]

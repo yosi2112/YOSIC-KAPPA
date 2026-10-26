@@ -1,5 +1,7 @@
 """Generate bootable KAPPA-DOS FAT12 media for the built-in disk profiles."""
+import argparse
 import pathlib
+import re
 import struct
 import sys
 
@@ -34,8 +36,30 @@ def make_entry(name, extension, attributes, first_cluster, size):
     return entry
 
 
+def load_transients(paths):
+    """Validate the entire input set before allocating or writing either image."""
+    commands = []
+    names = set()
+    for path in paths:
+        name = path.name.upper()
+        if not re.fullmatch(r'[A-Z0-9_]{1,8}\.YKE', name) or name in names:
+            raise ValueError(f'Invalid or duplicate transient name: {path.name}')
+        image = path.read_bytes()
+        if len(image) < 28 or len(image) > 65544 or len(image) % 4:
+            raise ValueError(f'Invalid YKE size: {path}')
+        magic, version, size, entry, expected, reserved = struct.unpack_from('<4s5I', image)
+        if (magic != b'YKE1' or version != 1 or reserved or
+                size != len(image) - 24 or entry % 4 or entry >= size or
+                checksum(image[24:]) != expected):
+            raise ValueError(f'Invalid YKE header/checksum: {path}')
+        names.add(name)
+        commands.append((name, image))
+    return commands
+
+
 def build_profile(directory, cylinders, sectors_per_track, sector_size,
-                  bytes_per_sector, sectors_per_fat, root_entries, media_id):
+                  bytes_per_sector, sectors_per_fat, root_entries, media_id,
+                  transients=()):
     kernel = (directory / 'dos.bin').read_bytes()
     loader = (directory / 'loader.bin').read_bytes()
     assert 4 <= len(loader) <= 8192 and len(loader) % 4 == 0
@@ -90,6 +114,23 @@ def build_profile(directory, cylinders, sectors_per_track, sector_size,
     if reservation_clusters:
         fat12_chain(fat0, 2, reservation_clusters)
     fat12_chain(fat0, payload_cluster, payload_clusters)
+    next_cluster = payload_cluster + payload_clusters
+    next_entry = 2 if reservation_clusters else 1
+    command_entries = []
+    for name, image in transients:
+        count = (len(image) + cluster_bytes - 1) // cluster_bytes
+        if next_entry >= root_entries:
+            raise ValueError('Transient commands exceed root directory capacity')
+        if next_cluster + count > total_sectors - data_start + 2:
+            raise ValueError('Transient commands exceed FAT12 media capacity')
+        if next_cluster + count > 0xff0:
+            raise ValueError('Transient allocation reaches FAT12 reserved clusters')
+        fat12_chain(fat0, next_cluster, count)
+        offset = (data_start + next_cluster - 2) * cluster_bytes
+        raw[offset:offset + len(image)] = image
+        command_entries.append((next_entry, name, next_cluster, len(image)))
+        next_entry += 1
+        next_cluster += count
     for copy in range(2):
         start = (fat_start + copy * sectors_per_fat) * bytes_per_sector
         raw[start:start + fat_length] = fat0
@@ -106,6 +147,10 @@ def build_profile(directory, cylinders, sectors_per_track, sector_size,
     payload_entry_offset = payload_entry * 32
     root_entries_data[payload_entry_offset:payload_entry_offset + 32] = make_entry(
         'KAPPA', 'SYS', 0x06, payload_cluster, len(payload))
+    for index, name, cluster, size in command_entries:
+        stem, extension = name.split('.')
+        root_entries_data[index * 32:(index + 1) * 32] = make_entry(
+            stem, extension, 0x20, cluster, size)
     raw[root_offset:root_offset + len(root_entries_data)] = root_entries_data
 
     payload_offset = payload_start * bytes_per_sector
@@ -151,16 +196,25 @@ def build_profile(directory, cylinders, sectors_per_track, sector_size,
     return raw, d88
 
 
-def build(directory):
-    raw_144, d88_144 = build_profile(directory, 80, 18, 512, 512, 9, 224, 0xf0)
+def build(directory, transient_paths=()):
+    commands = load_transients(transient_paths)
+    raw_144, d88_144 = build_profile(directory, 80, 18, 512, 512, 9, 224, 0xf0, commands)
+    raw_125, d88_125 = build_profile(directory, 77, 8, 1024, 1024, 2, 192, 0xfe, commands)
     (directory / 'dos.img').write_bytes(raw_144)
     (directory / 'dos.d88').write_bytes(d88_144)
 
-    raw_125, d88_125 = build_profile(directory, 77, 8, 1024, 1024, 2, 192, 0xfe)
     (directory / 'dos-1.25.img').write_bytes(raw_125)
     (directory / 'dos-1.25.d88').write_bytes(d88_125)
     print('Generated bootable L3DiskEx FAT12 media: 1.25 MB PC-98 and 1.44 MB PC-AT')
+    print('Transient commands: ' + (', '.join(name for name, _ in commands) or '(none)'))
 
 
 if __name__ == '__main__':
-    build(pathlib.Path(sys.argv[1]))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('directory', type=pathlib.Path)
+    parser.add_argument('--transient', type=pathlib.Path, action='append', default=[])
+    args = parser.parse_args()
+    try:
+        build(args.directory, args.transient)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
