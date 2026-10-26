@@ -181,7 +181,7 @@ file_new_sector:
         LRM R0,[R0+36]
         ADI R1,RZR,2
         SUB R1,R0,R1
-        SNZ R1
+        SRZ R1
         JMP file_cluster_zero_done
         ADI R0,RZR,1
         SRM R0,[R13+76]
