@@ -8252,26 +8252,45 @@ core_drive_number:
 core_drive_number_invalid:
         ADI R0,RZR,-1
         JMP return_sub
+; MOVE /Y uses the normal command/API path. No application-specific names.
+MoveConst MACRO reg,value
+        LRM reg,[R12+literal-8000h]
+        JMP next
+literal: DD value
+next:
+        ENDM
 core_move_command:
         PSH R8
         ADD R8,SP,RZR
-        ADI SP,SP,-64
+        ADI SP,SP,-92
+        SRM R6,[R8-92]
+        SRM RZR,[R8-68]
         LRM R0,[R8+8]
         PSH R0
         Call core_tokens
         ADI SP,SP,4
-        ADI R1,RZR,2
-        SUB R1,R0,R1
-        ADI R0,RZR,0
+        ADI R1,R0,-2
+        SNZ R1
+        JMP core_move_arguments
+        ADI R1,R0,-3
         SRZ R1
-        ADI R0,RZR,1
+        JMP core_move_parameter
+        LRM R0,[R12+core_literal_243-8000h]
+        LRM R0,[R0+8]
+        PSH R0
+        LRM R0,[R12+core_literal_721-8000h]
+        PSH R0
+        Call core_equal
+        ADI SP,SP,8
         SNZ R0
-        JMP core_else_771
+        JMP core_move_parameter
+        ADI R0,RZR,1
+        SRM R0,[R8-68]
+        JMP core_move_arguments
+core_move_parameter:
         ADI R0,RZR,87
         JMP core_return_770
-        JMP core_if_end_772
-core_else_771:
-core_if_end_772:
+core_move_arguments:
         LRM R0,[R12+core_literal_243-8000h]
         LRM R0,[R0]
         SRM R0,[R8-56]
@@ -8508,6 +8527,32 @@ core_bool_end_793:
         JMP core_if_end_792
 core_else_791:
 core_if_end_792:
+        LRM R0,[R8-68]
+        SNZ R0
+        JMP core_move_exists
+        LRM R0,[R8-36]
+        LRM R0,[R0+44]
+        ADI R1,RZR,25
+        ANL R0,R0,R1
+        SRZ R0
+        JMP core_move_access
+        MoveConst R0,0c0000h
+        LRM R0,[R0+44]
+        ADI R1,RZR,24
+        ANL R0,R0,R1
+        SRZ R0
+        JMP core_move_access
+        LRM R0,[R8-60]
+        LRM R1,[R8-28]
+        SUB R0,R0,R1
+        SNZ R0
+        JMP core_move_replace
+        ; Different drives retain COPY /Y followed by source deletion.
+        JMP core_if_end_790
+core_move_access:
+        ADI R0,RZR,5
+        JMP core_return_770
+core_move_exists:
         ADI R0,RZR,183
         JMP core_return_770
         JMP core_if_end_790
@@ -9003,7 +9048,207 @@ core_if_end_838:
         ADI SP,SP,16
         JMP core_return_770
         ADI R0,RZR,0
+        JMP core_move_replace_end
+core_move_replace:
+        LRM R0,[R12+core_literal_41-8000h]
+        LRM R0,[R0]
+        SRM R0,[R8-76]
+        LRM R0,[R8-36]
+        MoveConst R1,40000h
+        SUB R0,R0,R1
+        SRM R0,[R8-80]
+        MoveConst R0,0c4000h
+        PSH R0
+        LRM R0,[R8-36]
+        PSH R0
+        ADI R0,RZR,32
+        PSH R0
+        Call core_memcopy
+        ADI SP,SP,12
+        MoveConst R0,0c4068h
+        PSH R0
+        Call core_le16
+        ADI SP,SP,4
+        PSH R0
+        MoveConst R0,0c4070h
+        PSH R0
+        Call core_le32
+        ADI SP,SP,4
+        PSH R0
+        MoveConst R0,68000h
+        PSH R0
+        Call core_chain_load
+        ADI SP,SP,12
+        MoveConst R1,80000000h
+        ANL R1,R0,R1
+        SRZ R1
+        JMP core_move_disk_error
+        SRM R0,[R8-72]
+        MoveConst R0,0c0068h
+        PSH R0
+        Call core_le16
+        ADI SP,SP,4
+        PSH R0
+        MoveConst R0,0c0070h
+        PSH R0
+        Call core_le32
+        ADI SP,SP,4
+        PSH R0
+        MoveConst R0,64000h
+        PSH R0
+        Call core_chain_load
+        ADI SP,SP,12
+        MoveConst R1,80000000h
+        ANL R1,R0,R1
+        SRZ R1
+        JMP core_move_disk_error
+        SRM R0,[R8-84]
+        ADD R6,R0,RZR
+        MoveConst R9,64000h
+core_move_overlap_source:
+        SNZ R6
+        JMP core_move_replace_write
+        LRM R5,[R9]
+        LRM R4,[R8-72]
+        MoveConst R3,68000h
+core_move_overlap_target:
+        SNZ R4
+        JMP core_move_overlap_next
+        LRM R0,[R3]
+        SUB R0,R0,R5
+        SNZ R0
+        JMP core_move_bad_data
+        ADI R3,R3,4
+        ADI R4,R4,-1
+        JMP core_move_overlap_target
+core_move_overlap_next:
+        ADI R9,R9,4
+        ADI R6,R6,-1
+        JMP core_move_overlap_source
+core_move_replace_write:
+        LRM R0,[R8-76]
+        PSH R0
+        Call core_read_dir_sector
+        ADI SP,SP,4
+        SRZ R0
+        JMP core_return_770
+        MoveConst R0,40000h
+        LRM R1,[R8-80]
+        ADD R0,R0,R1
+        ADI R0,R0,44
+        PSH R0
+        MoveConst R0,0c002ch
+        PSH R0
+        ADI R0,RZR,21
+        PSH R0
+        Call core_memcopy
+        ADI SP,SP,12
+        ; One sector update publishes the target and removes the source when
+        ; both entries share a sector (the SUBMIT promotion case).
+        LRM R0,[R8-76]
+        LRM R1,[R8-48]
+        SUB R0,R0,R1
+        SRZ R0
+        JMP core_move_publish
+        MoveConst R0,40000h
+        LRM R1,[R8-52]
+        ADD R0,R0,R1
+        ADI R1,RZR,229
+        SRM R1,[R0]
+core_move_publish:
+        LRM R0,[R8-76]
+        PSH R0
+        MoveConst R0,40000h
+        PSH R0
+        LRM R0,[R8-60]
+        PSH R0
+        ADI R0,RZR,1
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRZ R0
+        JMP core_return_770
+        LRM R0,[R8-76]
+        LRM R1,[R8-48]
+        SUB R0,R0,R1
+        SRZ R0
+        JMP core_move_remove_source
+        JMP core_move_free_old
+core_move_remove_source:
+        LRM R0,[R8-48]
+        PSH R0
+        Call core_read_dir_sector
+        ADI SP,SP,4
+        SRZ R0
+        JMP core_move_restore_target
+        MoveConst R0,40000h
+        LRM R1,[R8-52]
+        ADD R0,R0,R1
+        ADI R1,RZR,229
+        SRM R1,[R0]
+        LRM R0,[R8-48]
+        PSH R0
+        MoveConst R0,40000h
+        PSH R0
+        LRM R0,[R8-60]
+        PSH R0
+        ADI R0,RZR,1
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRZ R0
+        JMP core_move_restore_target
+core_move_free_old:
+        MoveConst R0,68000h
+        PSH R0
+        LRM R0,[R8-72]
+        PSH R0
+        Call core_free_chain
+        ADI SP,SP,8
+        Call core_fatflush
+        JMP core_return_770
+core_move_restore_target:
+        SRM R0,[R8-88]
+        LRM R0,[R8-76]
+        PSH R0
+        Call core_read_dir_sector
+        ADI SP,SP,4
+        SRZ R0
+        JMP core_return_770
+        MoveConst R0,40000h
+        LRM R1,[R8-80]
+        ADD R0,R0,R1
+        PSH R0
+        MoveConst R0,0c4000h
+        PSH R0
+        ADI R0,RZR,32
+        PSH R0
+        Call core_memcopy
+        ADI SP,SP,12
+        LRM R0,[R8-76]
+        PSH R0
+        MoveConst R0,40000h
+        PSH R0
+        LRM R0,[R8-60]
+        PSH R0
+        ADI R0,RZR,1
+        PSH R0
+        Call core_block
+        ADI SP,SP,16
+        SRZ R0
+        JMP core_return_770
+        LRM R0,[R8-88]
+        JMP core_return_770
+core_move_bad_data:
+        ADI R0,RZR,13
+        JMP core_return_770
+core_move_disk_error:
+        LRM R0,[R12+core_literal_85-8000h]
+        LRM R0,[R0]
+        JMP core_return_770
+core_move_replace_end:
 core_return_770:
+        LRM R6,[R8-92]
         ADD SP,R8,RZR
         POP R8
         JMP return_sub

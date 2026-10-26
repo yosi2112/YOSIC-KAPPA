@@ -10,7 +10,7 @@ FileSmall MACRO value
         PSH R0
         ENDM
 file_reset:
-        Const R8,0xB0000
+        ExecConst R8,0xB0000
         ADI R9,RZR,8
 file_reset_loop:
         SRM RZR,[R8]
@@ -21,7 +21,7 @@ file_reset_loop:
         ADI R0,RZR,0
         JMP return_sub
 file_has_open:
-        Const R8,0xB0000
+        ExecConst R8,0xB0000
         ADI R9,RZR,8
 file_has_loop:
         LRM R0,[R8]
@@ -37,16 +37,16 @@ file_has_yes:
         ADI R0,RZR,1
         JMP return_sub
 file_dispatch:
-        Const R13,4f00h
-        Const R0,40000h
+        ExecConst R13,4f00h
+        ExecConst R0,40000h
         SRM R0,[R13+116]
-        Const R0,46000h
+        ExecConst R0,46000h
         SRM R0,[R13+120]
-        Const R0,64000h
+        ExecConst R0,64000h
         SRM R0,[R13+124]
         SRM RZR,[R13+52]
         SRM R1,[R13+112]
-        Const R0,13fe4h
+        ExecConst R0,13fe4h
         SRM RZR,[R0]
         ADI R0,R1,-20h
         SNZ R0
@@ -91,7 +91,7 @@ file_io_start:
         SUB R0,R0,R1
         LRM R1,[R13+44]
         SUB R2,R0,R1
-        Const R3,80000000h
+        ExecConst R3,80000000h
         ANL R2,R2,R3
         SRZ R2
         SRM R0,[R13+44]
@@ -141,7 +141,7 @@ file_cluster_sector_done:
         SRM RZR,[R13+72]
         LRM R1,[R13+40]
         SUB R2,R0,R1
-        Const R3,80000000h
+        ExecConst R3,80000000h
         ANL R2,R2,R3
         SNZ R2
         JMP file_new_sector
@@ -200,7 +200,7 @@ file_chunk:
         LRM R2,[R13+52]
         SUB R1,R1,R2
         SUB R2,R1,R0
-        Const R3,80000000h
+        ExecConst R3,80000000h
         ANL R2,R2,R3
         SRZ R2
         ADD R0,R1,RZR
@@ -276,7 +276,7 @@ file_write_header:
         ADD R0,R0,R1
         LRM R1,[R13+20]
         SUB R2,R0,R1
-        Const R3,80000000h
+        ExecConst R3,80000000h
         ANL R2,R2,R3
         SRZ R2
         JMP file_header_ready
@@ -308,7 +308,7 @@ file_io_data:
         ADI R0,RZR,13
         JMP file_io_fault
 file_io_disk_error:
-        Const R0,13fe4h
+        ExecConst R0,13fe4h
         LRM R0,[R0]
         JMP file_io_result
 file_io_fault:
@@ -331,7 +331,7 @@ file_open:
         SRM R0,[R13+4]
         ADI R1,RZR,3
         SUB R1,R0,R1
-        Const R2,80000000h
+        ExecConst R2,80000000h
         ANL R3,R0,R2
         SRZ R3
         JMP file_open_parameter
@@ -356,7 +356,7 @@ file_path_check:
         ADI R8,R8,4
         JMP file_path_check
 file_open_slot:
-        Const R8,0xB0000
+        ExecConst R8,0xB0000
         ADI R9,RZR,1
 file_slot_scan:
         LRM R0,[R8]
@@ -384,16 +384,16 @@ file_slot_found:
         ADI SP,SP,8
         SRZ R0
         JMP file_open_error
-        Const R0,13fcch
+        ExecConst R0,13fcch
         LRM R0,[R0]
         SRZ R0
         JMP file_open_denied
-        Const R0,13fe0h
+        ExecConst R0,13fe0h
         LRM R0,[R0]
         SRM R0,[R13+32]
         LRM R0,[R0]
         SRM R0,[R13+8]
-        Const R0,13fc4h
+        ExecConst R0,13fc4h
         LRM R0,[R0]
         SRM R0,[R13+36]
         SNZ R0
@@ -411,7 +411,7 @@ file_slot_found:
         SRZ R1
         JMP file_open_denied
 file_open_location:
-        Const R1,13ff8h
+        ExecConst R1,13ff8h
         LRM R1,[R1]
         SRM R1,[R13+12]
         LRM R1,[R13+116]
@@ -441,7 +441,7 @@ file_open_location:
         JMP file_open_truncate
         JMP file_open_ready
 file_open_create:
-        Const R0,13fc0h
+        ExecConst R0,13fc0h
         LRM R0,[R0]
         PSH R0
         Call core_free_entry
@@ -449,7 +449,7 @@ file_open_create:
         SNZ R0
         JMP file_open_disk_error
         SRM R0,[R13+36]
-        Const R1,13ff8h
+        ExecConst R1,13ff8h
         LRM R1,[R1]
         SRM R1,[R13+12]
         LRM R1,[R13+116]
@@ -501,7 +501,7 @@ file_open_denied:
         ADI R0,RZR,5
         JMP file_open_error
 file_open_disk_error:
-        Const R0,13fe4h
+        ExecConst R0,13fe4h
         LRM R0,[R0]
         SNZ R0
         ADI R0,RZR,112
@@ -512,7 +512,7 @@ file_result:
         JMP file_result_error
         JMP syscall_result
 file_result_error:
-        Const R1,13ff4h
+        ExecConst R1,13ff4h
         ADI R2,RZR,-1
         SRM R2,[R1]
         SRM R2,[R1+4]
@@ -522,7 +522,7 @@ file_result_error:
 file_find:
         LRM R0,[RZR+4d04h]
         ADI R0,R0,-1
-        Const R1,80000000h
+        ExecConst R1,80000000h
         ANL R2,R0,R1
         SRZ R2
         JMP file_invalid
@@ -533,7 +533,7 @@ file_find:
         REPT 7
         ADD R0,R0,R0
         ENDM
-        Const R8,0xB0000
+        ExecConst R8,0xB0000
         ADD R8,R8,R0
         LRM R0,[R8]
         SNZ R0
@@ -571,7 +571,7 @@ file_store_loop:
         ADI R0,RZR,0
         JMP return_sub
 file_duplicate:
-        Const R8,0xB0000
+        ExecConst R8,0xB0000
         ADI R9,RZR,8
 file_duplicate_loop:
         LRM R0,[R8]
@@ -607,7 +607,7 @@ file_load:
         ADI SP,SP,4
         SRZ R0
         JMP return_sub
-        Const R0,13fe0h
+        ExecConst R0,13fe0h
         LRM R0,[R0]
         SRM R0,[R13+32]
         FileField 12
@@ -663,7 +663,7 @@ file_chain:
         FileField 124
         Call core_chain_load
         ADI SP,SP,12
-        Const R1,80000000h
+        ExecConst R1,80000000h
         ANL R1,R0,R1
         SRZ R1
         JMP file_helper_disk_error
@@ -687,7 +687,7 @@ file_chain:
         ADI R0,RZR,0
         JMP return_sub
 file_helper_disk_error:
-        Const R0,13fe4h
+        ExecConst R0,13fe4h
         LRM R0,[R0]
         JMP return_sub
 file_helper_data:
@@ -751,14 +751,14 @@ file_sector:
 file_buffer:
         LRM R8,[R13+48]
         LRM R9,[R13+44]
-        Const R4,80000000h
+        ExecConst R4,80000000h
         ANL R0,R8,R4
         SRZ R0
         JMP file_helper_parameter
         ANL R0,R9,R4
         SRZ R0
         JMP file_helper_parameter
-        Const R0,32769
+        ExecConst R0,32769
         SUB R0,R9,R0
         ANL R0,R0,R4
         SNZ R0
@@ -767,36 +767,36 @@ file_buffer:
         ANL R0,R8,R0
         SRZ R0
         JMP file_helper_parameter
-        Const R0,80000h
+        ExecConst R0,80000h
         SUB R0,R8,R0
         ANL R0,R0,R4
         SRZ R0
         JMP file_helper_parameter
-        Const R3,8fff0h
+        ExecConst R3,8fff0h
         SUB R0,R8,R3
         ANL R0,R0,R4
         SNZ R0
         JMP file_buffer_work
         JMP file_buffer_end
 file_buffer_work:
-        Const R0,0d0000h
+        ExecConst R0,0d0000h
         SUB R0,R8,R0
         ANL R0,R0,R4
         SRZ R0
         JMP file_helper_parameter
-        Const R3,0f0000h
+        ExecConst R3,0f0000h
         SUB R0,R8,R3
         ANL R0,R0,R4
         SNZ R0
         JMP file_buffer_args
         JMP file_buffer_end
 file_buffer_args:
-        Const R0,0f1000h
+        ExecConst R0,0f1000h
         SUB R0,R8,R0
         ANL R0,R0,R4
         SRZ R0
         JMP file_helper_parameter
-        Const R3,0f1200h
+        ExecConst R3,0f1200h
 file_buffer_end:
         ADD R9,R9,R9
         ADD R9,R9,R9

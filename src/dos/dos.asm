@@ -81,6 +81,12 @@ entry:
         NewLine
 
 new_line:
+        Call submit_next
+        SNZ R0
+        JMP console_line
+        ADI R8,RZR,Buffer
+        JMP skip_space
+console_line:
         ADI R3,RZR,0
         ADI R4,RZR,Buffer
         ADI R5,RZR,0
@@ -192,10 +198,12 @@ dispatch:
         PSH R8
         Call exec_command
         ADI SP,SP,4
+        Call submit_result
         JMP new_line
 cmd_dir: ADI R0,RZR,1
         JMP run_command
 disk_reset:
+        Call submit_reset
         NewLine
         Call core_init
         Call file_reset
@@ -223,6 +231,7 @@ run_command:
         ADI SP,SP,8
         Const R1,13f00h
         SRM R0,[R1]
+        Call submit_result
         JMP new_line
 rejected_line:
         ADI R2,R5,-1
@@ -240,4 +249,5 @@ long_line:
         INCLUDE media.inc
         INCLUDE exec.inc
         INCLUDE media-return.inc
+        INCLUDE submit.inc
         END
