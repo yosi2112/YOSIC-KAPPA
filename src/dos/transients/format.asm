@@ -16,6 +16,11 @@ start:
         TrCall mc_arg
         McFail
         TrConst R2,0dc000h
+        McAddr R3,tfmt_help
+        TrCall mc_equal
+        SNZ R0
+        JMP fmt_help
+        TrConst R2,0dc000h
         TrCall mc_drive
         McFail
         SRM R2,[R13]

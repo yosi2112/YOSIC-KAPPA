@@ -2,9 +2,36 @@
 #include <cctype>
 #include <charconv>
 #include <cwctype>
+#include <fstream>
 #include <set>
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
 namespace yosic {
 namespace {
+// Serialize first, then replace the attached image atomically. A failed save
+// leaves both the old file and the live attachment available for retry.
+void save_attached(const std::filesystem::path &path, const media::Bytes &bytes) {
+    auto temporary = path;
+    temporary += ".kappa-save.tmp";
+    media::save_new(temporary, bytes);
+    std::error_code error;
+#ifdef _WIN32
+    if (!MoveFileExW(temporary.c_str(), path.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        error = std::error_code(GetLastError(), std::system_category());
+#else
+    std::filesystem::rename(temporary, path, error);
+#endif
+    if (error) {
+        std::error_code ignored;
+        std::filesystem::remove(temporary, ignored);
+        throw std::filesystem::filesystem_error("cannot save attached disk", path, error);
+    }
+}
 unsigned integer(std::string_view s) {
     unsigned n = 0;
     auto [p, e] = std::from_chars(s.data(), s.data() + s.size(), n);
@@ -164,34 +191,29 @@ void DiskMounts::load(Fdc &fdc) {
 }
 void DiskMounts::save(const Fdc &fdc) {
     std::array<media::Bytes, 4> outputs;
-    // Serialize all drives before creating files, so a lossy conversion writes nothing.
+    // Preflight every conversion before writing any attached image or copy.
     for (unsigned u = 0; u < 4; ++u) {
-        auto &m = mounts_[u];
-        if (m.output.empty())
-            continue;
-        const auto &d = *fdc.drives[u].disk;
-        auto e = extension(m.output);
-        if (e == ".d88") {
-            if (m.container.disks.empty())
-                m.container.disks.push_back(d);
-            else
-                m.container.disks[m.index.value_or(0)] = d;
-            outputs[u] = media::write_d88(m.container);
-        } else if (e == ".kfd")
-            outputs[u] = media::write_internal(d);
-        else
-            outputs[u] = media::write_raw(d, *geometry_);
+        const auto &m = mounts_[u];
+        const auto &drive = fdc.drives[u];
+        if (!m.output.empty() || (m.inplace && !drive.read_only && drive.disk->dirty))
+            outputs[u] = serialize(u, fdc);
     }
-    for (unsigned u = 0; u < 4; ++u)
-        if (!mounts_[u].output.empty())
-            media::save_new(mounts_[u].output, outputs[u]);
+    for (unsigned u = 0; u < 4; ++u) {
+        const auto &m = mounts_[u];
+        if (!m.output.empty())
+            media::save_new(m.output, outputs[u]);
+        else if (!outputs[u].empty()) {
+            save_attached(m.source, outputs[u]);
+            fdc.drives[u].disk->dirty = false;
+        }
+    }
 }
 media::Bytes DiskMounts::serialize(unsigned unit, const Fdc &fdc) const {
     const auto &m = mounts_.at(unit);
     const auto &disk = fdc.drives.at(unit).disk;
     if (!disk)
         throw std::runtime_error("no mounted disk to save");
-    const auto e = extension(m.output);
+    const auto e = extension(m.inplace ? m.source : m.output);
     if (e == ".d88") {
         auto container = m.container;
         if (container.disks.empty())
@@ -202,7 +224,7 @@ media::Bytes DiskMounts::serialize(unsigned unit, const Fdc &fdc) const {
     }
     if (e == ".kfd")
         return media::write_internal(*disk);
-    return media::write_raw(*disk, *geometry_);
+    return media::write_raw(*disk, geometry_.value_or(media::Geometry{}));
 }
 void DiskMounts::save_unit(unsigned unit, Fdc &fdc) {
     auto &m = mounts_.at(unit);
@@ -211,34 +233,81 @@ void DiskMounts::save_unit(unsigned unit, Fdc &fdc) {
         media::save_new(m.output, bytes);
         m.output.clear();
         fdc.drives[unit].read_only = true;
+    } else if (m.inplace && !fdc.drives[unit].read_only && fdc.drives[unit].disk->dirty) {
+        save_attached(m.source, serialize(unit, fdc));
+        fdc.drives[unit].disk->dirty = false;
     } else if (fdc.drives.at(unit).disk && !fdc.drives[unit].read_only &&
                fdc.drives[unit].disk->dirty)
         throw std::runtime_error("unsaved disk changes have no output path");
 }
-void DiskMounts::attach(Fdc &fdc, unsigned unit, const std::filesystem::path &source) {
+void DiskMounts::attach(Fdc &fdc, unsigned unit, const std::filesystem::path &source,
+                        bool read_only, bool must_exist) {
+    if (unit >= mounts_.size())
+        throw std::invalid_argument("disk drive must be 0..3");
     if (!fdc.can_change_media(unit))
         throw std::runtime_error("FDC busy; finish the disk transfer first");
     if (source.empty() || !known(source))
         throw std::invalid_argument("disk extension must be .img, .d88 or .kfd");
+    const bool exists = std::filesystem::exists(source);
+    if (!exists && (read_only || must_exist))
+        throw std::invalid_argument("disk image does not exist");
     Mount replacement;
     replacement.source = source;
-    const auto bytes = media::load(source);
+    replacement.inplace = !read_only;
+    const auto geometry = geometry_.value_or(media::Geometry{});
     const auto e = extension(source);
     media::Disk disk;
-    const auto geometry = geometry_.value_or(media::Geometry{});
-    if (e == ".d88") {
-        replacement.container = media::read_d88(bytes);
-        if (replacement.container.disks.empty())
-            throw std::invalid_argument("empty D88 container");
-        disk = replacement.container.disks.front();
-    } else if (e == ".kfd")
-        disk = media::read_internal(bytes);
-    else
-        disk = media::read_raw(bytes, geometry);
+    if (!exists)
+        disk = media::create(geometry);
+    else {
+        const auto bytes = media::load(source);
+        if (e == ".d88") {
+            replacement.container = media::read_d88(bytes);
+            if (replacement.container.disks.empty())
+                throw std::invalid_argument("empty D88 container");
+            disk = replacement.container.disks.front();
+        } else if (e == ".kfd")
+            disk = media::read_internal(bytes);
+        else
+            disk = media::read_raw(bytes, geometry);
+        disk.dirty = false;
+        if (!read_only) {
+            std::fstream file(source, std::ios::in | std::ios::out | std::ios::binary);
+            if (!file) {
+                read_only = true;
+                replacement.inplace = false;
+            }
+        }
+    }
+    // Prevent two writable snapshots of one host file. RO readers can coexist.
+    for (unsigned i = 0; i < mounts_.size(); ++i) {
+        if (i == unit || mounts_[i].source.empty() || !exists)
+            continue;
+        if (std::filesystem::equivalent(source, mounts_[i].source) &&
+            (!read_only || mounts_[i].inplace))
+            throw std::invalid_argument("disk image already attached for writing");
+    }
     auto prepared = std::make_shared<media::Disk>(std::move(disk));
-    // Verify and prepare the replacement before saving or changing the old mount.
+    const bool reload = exists && mounts_[unit].inplace && fdc.drives[unit].disk &&
+                        fdc.drives[unit].disk->dirty &&
+                        std::filesystem::equivalent(source, mounts_[unit].source);
+    if (reload)
+        prepared = std::make_shared<media::Disk>(*fdc.drives[unit].disk);
     save_unit(unit, fdc);
-    fdc.change_media(unit, std::move(prepared), true, e != ".img" || geometry.heads == 2);
+    if (!exists) {
+        media::Bytes bytes;
+        if (e == ".kfd")
+            bytes = media::write_internal(*prepared);
+        else if (e == ".d88") {
+            media::D88 container;
+            container.disks.push_back(*prepared);
+            bytes = media::write_d88(container);
+        } else
+            bytes = media::write_raw(*prepared, geometry);
+        media::save_new(source, bytes);
+        prepared->dirty = false;
+    }
+    fdc.change_media(unit, std::move(prepared), read_only, e != ".img" || geometry.heads == 2);
     mounts_[unit] = std::move(replacement);
 }
 void DiskMounts::detach(Fdc &fdc, unsigned unit) {
@@ -261,7 +330,9 @@ std::string DiskMounts::show(const Fdc &fdc, std::optional<unsigned> unit) const
             result += "not attached";
         else {
             result += m.create ? "new disk" : m.source.string();
-            result += fdc.drives[i].protected_media() ? " [read-only]" : " [writable copy]";
+            result += fdc.drives[i].protected_media()
+                          ? " [read-only]"
+                          : (m.inplace ? " [read/write]" : " [writable copy]");
             if (!m.output.empty())
                 result += " -> " + m.output.string();
         }
@@ -275,19 +346,42 @@ std::optional<std::string> DiskMounts::command(std::string_view text, Fdc &fdc) 
         text.remove_prefix(1);
     const auto end = text.find_first_of(" \t\r\n");
     const auto op = upper(std::string(text.substr(0, end)));
-    if (op != "AT" && op != "DT")
+    if (op == "Q" && command_words(text).size() == 1) {
+        // Save AT attachments while the debugger can still report a failure
+        // and retain the live medium. The normal Q handler runs on success.
+        std::array<media::Bytes, 4> prepared;
+        for (unsigned i = 0; i < mounts_.size(); ++i)
+            if (mounts_[i].inplace && !fdc.drives[i].read_only && fdc.drives[i].disk->dirty)
+                prepared[i] = serialize(i, fdc);
+        for (unsigned i = 0; i < mounts_.size(); ++i)
+            if (!prepared[i].empty()) {
+                save_attached(mounts_[i].source, prepared[i]);
+                fdc.drives[i].disk->dirty = false;
+            }
+        return {};
+    }
+    if (op != "AT" && op != "ATTACH" && op != "DT" && op != "DETACH")
         return {};
     auto args = command_words(text);
     args.erase(args.begin());
-    if (op == "AT") {
+    if (op == "AT" || op == "ATTACH") {
         if (args.empty())
             return show(fdc);
-        if (upper(args[0]) == "-R")
+        bool read_only = false, must_exist = false;
+        while (!args.empty() && args[0].starts_with("-")) {
+            const auto flag = upper(args[0]);
+            if (flag == "-R")
+                read_only = true;
+            else if (flag == "-E")
+                must_exist = true;
+            else
+                throw std::invalid_argument("AT [-R] [-E] drive filename");
             args.erase(args.begin());
+        }
         if (args.size() != 2)
-            throw std::invalid_argument("AT [-R] drive filename");
+            throw std::invalid_argument("AT [-R] [-E] drive filename");
         const auto unit = disk_unit(args[0]);
-        attach(fdc, unit, args[1]);
+        attach(fdc, unit, args[1], read_only, must_exist);
         return "Attached " + show(fdc, unit);
     }
     if (args.size() != 1)
@@ -299,7 +393,8 @@ std::optional<std::string> DiskMounts::command(std::string_view text, Fdc &fdc) 
         // Save every old medium before detaching any drive.
         std::array<media::Bytes, 4> prepared;
         for (unsigned i = 0; i < mounts_.size(); ++i) {
-            if (!mounts_[i].output.empty())
+            if (!mounts_[i].output.empty() ||
+                (mounts_[i].inplace && !fdc.drives[i].read_only && fdc.drives[i].disk->dirty))
                 prepared[i] = serialize(i, fdc);
             else if (fdc.drives[i].disk && !fdc.drives[i].read_only && fdc.drives[i].disk->dirty)
                 throw std::runtime_error("unsaved disk changes have no output path");
@@ -309,6 +404,9 @@ std::optional<std::string> DiskMounts::command(std::string_view text, Fdc &fdc) 
                 media::save_new(mounts_[i].output, prepared[i]);
                 mounts_[i].output.clear();
                 fdc.drives[i].read_only = true;
+            } else if (!prepared[i].empty()) {
+                save_attached(mounts_[i].source, prepared[i]);
+                fdc.drives[i].disk->dirty = false;
             }
         for (unsigned i = 0; i < mounts_.size(); ++i)
             detach(fdc, i);

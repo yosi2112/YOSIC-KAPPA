@@ -10,6 +10,7 @@ class DiskMounts {
         std::filesystem::path source, output;
         std::optional<std::size_t> index;
         bool create = false;
+        bool inplace = false;
         media::D88 container;
     };
     std::array<Mount, 4> mounts_;
@@ -21,7 +22,8 @@ class DiskMounts {
     void load(Fdc &fdc);
     void save(const Fdc &fdc);
     std::optional<std::string> command(std::string_view text, Fdc &fdc);
-    void attach(Fdc &fdc, unsigned unit, const std::filesystem::path &source);
+    void attach(Fdc &fdc, unsigned unit, const std::filesystem::path &source,
+                bool read_only = false, bool must_exist = false);
     void detach(Fdc &fdc, unsigned unit);
     std::string show(const Fdc &fdc, std::optional<unsigned> unit = {}) const;
 
