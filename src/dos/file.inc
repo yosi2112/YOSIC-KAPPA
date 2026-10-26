@@ -137,6 +137,7 @@ file_io_loop:
 file_cluster_sector_ready:
         SRM RZR,[R13+76]
 file_cluster_sector_done:
+        LRM R0,[R13+56]
         SRM RZR,[R13+72]
         LRM R1,[R13+40]
         SUB R2,R0,R1

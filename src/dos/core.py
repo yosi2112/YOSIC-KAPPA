@@ -1446,14 +1446,6 @@ def move_command(args):
     return block(slba, DIRECTORY, srcdrive, 1)
 
 
-def sysfat(cluster):
-    p = SYSFAT + (cluster + cluster // 2) * 4
-    value = read(p) + read(p + 4) * 256
-    if cluster & 1:
-        return value >> 4
-    return value & 4095
-
-
 def sys_command(args):
     if tokens(args) != 1:
         return 87
@@ -1462,66 +1454,127 @@ def sys_command(args):
         return 15
     if target == 0:
         return 5
+    status = sys_transfer(target)
+    write(FATDRIVE, -1)
+    write(DIRLBA, -1)
+    return status
+
+
+def sys_transfer(target):
+    status = select(0)
+    if status != 0:
+        return status
+    source_state = read(SELECT)
+    status = block(0, SYSBOOT, 0, 0)
+    if status != 0:
+        return status
+    if le32(SYSBOOT + 256) != 0x3150424B or le32(SYSBOOT + 272) != 1:
+        return 13
+    memcopy(NAMEBUF, "KAPPA   SYS", 11)
+    entry = find(0, 0)
+    if entry == 0:
+        return 13
+    memcopy(SYSFAT, entry, 32)  # Scratch now holds the source directory entry.
+    if read(SYSFAT + 44) & 24:
+        return 13
+    size = le32(SYSFAT + 112)
+    sectors = (size + 511) // 512
+    if size == 0 or sectors > 144:
+        return 13
+    source_count = chain_load(le16(SYSFAT + 104), size, SRCCHAIN)
+    if source_count < 0:
+        return 13
+    source_first = read(SRCCHAIN)
+    source_lba = read(source_state + 28) + (source_first - 2) * read(source_state + 36)
+    if le32(SYSBOOT + 384) != source_lba:
+        return 13
+    index = 0
+    while index < source_count:
+        if read(SRCCHAIN + index * 4) != source_first + index:
+            return 13
+        index += 1
+
     status = select(target)
     if status != 0:
         return status
     state = read(SELECT)
-    start = read(state + 8)
-    if start != 0 and start != 162:
-        return 13
-    status = block(0, SYSBOOT, 0, 0)
+    status = block(0, SYSBPB, target, 0)
     if status != 0:
         return status
-    if le32(SYSBOOT) != 0x3150424B or le32(SYSBOOT + 16) != 1:
-        return 13
-    status = block(start, SYSBPB, target, 0)
-    if status != 0:
-        return status
-    if start == 0:
-        limit = read(state + 32) - 162
-        if limit < 1:
+    entry = find(0, 0)
+    old_count = 0
+    if entry != 0:
+        if read(entry + 44) & 25:
+            return 5
+        old_count = chain_load(le16(entry + 104), le32(entry + 112), OLDCHAIN)
+        if old_count < 0:
+            return 13
+    else:
+        if read(ERROR) != 0:
+            return read(ERROR)
+        entry = free_entry(0)
+        if entry == 0:
             return 112
-        memcopy(SYSFAT, FAT, read(state + 16) * 512)
-        cluster = limit + 2
-        while cluster < read(state + 32) + 2:
-            if sysfat(cluster) != 0:
+    directory_lba = read(DIRLBA)
+    entry_offset = entry - DIRECTORY
+
+    # The IPL/loader start at a cylinder boundary on both supported profiles.
+    target_lba = read(state + 48) * 2
+    sectors_per_cluster = read(state + 36)
+    gap = target_lba - read(state + 28)
+    if gap < 0 or gap % sectors_per_cluster != 0:
+        return 13
+    first = gap // sectors_per_cluster + 2
+    count = (sectors + sectors_per_cluster - 1) // sectors_per_cluster
+    end = first + count
+    if end > read(state + 32) + 2:
+        return 112
+    cluster = first
+    while cluster < end:
+        if fatget(cluster) != 0:
+            index = 0
+            while index < old_count and read(OLDCHAIN + index * 4) != cluster:
+                index += 1
+            if index == old_count:
                 return 112
-            cluster += 1
-        cluster = limit + 1
-        while cluster >= 2:
-            if sysfat(cluster) != 0:
-                sector = read(state + 28) + cluster - 2
-                status = block(sector, WORK, target, 0)
-                if status == 0:
-                    status = block(sector + 162, WORK, target, 1)
-                if status != 0:
-                    return status
-            cluster -= 1
-        sector = read(state + 20) + read(state + 24) // 16 - 1
-        while sector >= read(state + 12):
-            status = block(sector, WORK, target, 0)
-            if status == 0:
-                status = block(sector + 162, WORK, target, 1)
-            if status != 0:
-                return status
-            sector -= 1
-        set16(SYSBPB + 76, le16(SYSBPB + 76) - 162)
-        set32(SYSBPB + 112, 162)
-        status = block(162, SYSBPB, target, 1)
-        if status != 0:
-            return status
-    sector = 1
-    while sector < 162:
-        status = block(sector, WORK, 0, 0)
+        cluster += 1
+
+    # All validation precedes writes. Existing user files are never relocated.
+    sector = 0
+    while sector < sectors:
+        status = block(source_lba + sector, WORK, 0, 0)
         if status == 0:
-            status = block(sector, WORK, target, 1)
+            status = block(target_lba + sector, WORK, target, 1)
         if status != 0:
             return status
         sector += 1
-    status = block(0, SYSBOOT, target, 1)
-    write(state + 4, 0)
-    write(FATDRIVE, -1)
-    write(DIRLBA, -1)
+    free_chain(OLDCHAIN, old_count)
+    cluster = first
+    while cluster < end:
+        fatset(cluster, cluster + 1 if cluster + 1 < end else 4095)
+        cluster += 1
+    status = fatflush()
+    if status != 0:
+        return status
+    status = read_dir_sector(directory_lba)
+    if status != 0:
+        return status
+    entry = DIRECTORY + entry_offset
+    memcopy(entry, SYSFAT, 32)
+    write(entry + 44, 6)
+    set16(entry + 104, first)
+    status = block(directory_lba, DIRECTORY, target, 1)
+    if status != 0:
+        return status
+
+    # Preserve the destination BPB and only install/update the IPL extension.
+    memcopy(SYSBPB + 256, SYSBOOT + 256, 48)
+    set32(SYSBPB + 368, read(state + 48))
+    set32(SYSBPB + 384, target_lba)
+    set32(SYSBPB + 400, 1)
+    set32(SYSBPB + 416, 0)
+    set32(SYSBPB + 432, 1)
+    status = block(0, SYSBPB, target, 1)
     if status == 0:
         puts("System transferred")
         newline()
