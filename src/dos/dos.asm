@@ -79,6 +79,8 @@ entry:
         ADI R6,RZR,0
         PutText "YOSIC-DOS 1.0K"
         NewLine
+        PutText "(C) 2026 YOSI2112"
+        NewLine
 
 new_line:
         Call submit_next

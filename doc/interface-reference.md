@@ -23,7 +23,7 @@ BOARD_CONTROLとSIGNALSは複数ドライブのビットを持つ基板レジス
 RX_READY=1なら読めるバイトがあります。空のRX_DATAから返る0と、入力されたNULはSTATUSで見分けます。
 TX_READYは常に1です。出力先へ同期的に書きます。INPUT_EOFとRX_READYは独立し、EOFの後にも未読バイトを消費できます。
 ファイル入力は全体を供給してEOFにします。無指定なら最初からEOFです。入力待ちでホストを止めることはありません。
-端末ではCtrl+ZがEOF、Ctrl+Cが停止です。バイト列を変換せず、文字コード変換は行いません。
+対話入力ではCtrl+ZがEOF、Ctrl+Cはゲストへ03hとして渡します。バイト列を変換せず、文字コード変換は行いません。
 
 次はDSを設定して`A`を1文字出す最小例です。実行用フォルダのルートで作業用`work`を作り、`work\put-a.asm`へ保存します。
 
@@ -53,14 +53,12 @@ FDCはフロッピーディスクコントローラです。DATAへコマンド�
 | `0x00FE0108` | SIGNALS | R | bit0 IRQ、bit1 DRQ、bit2はいずれかのhead loaded、bits4～7はdrive0～3 ready、bits8～11はindex。他は0。読出しで消えない |
 | `0x00FE010C` | BOARD_CONTROL | W | bit0 RESET（レベル）、bit1 TC（パルス）、bits4～7はmotor0～3、bit8は速度（0=500 kbps、1=250 kbps）。他ビットは未使用 |
 | `0x00FE0110` | DMA_ACK_DATA | R/W | DACK付き1バイト転送。読みは0拡張、書きは下位8ビット |
-| `0x00FE0114` | MEDIA_LOCK | 読書き32ビット | bits0〜3で各ドライブの媒体交換を禁止。その他のビットは0のみ |
-| `0x00FE0120`〜`0x00FE012C` | MEDIA_GENERATION[0〜3] | 読出し32ビット | 各ドライブの接続・交換・取り外しで増える世代番号。副作用なし |
 
 全レジスタへのCPUアクセス幅は32ビットです。SIGNALS、BOARD_CONTROL、DMA_ACK_DATAはKAPPA基板の追加機能です。
 BOARD_CONTROLは全値を書きます。TCだけを送る場合もmotorと速度を含めます。たとえばdrive0のmotorを回したままTCを送る値は`0x12`です。
 RESET=1の間はコマンドを受け付けません。RESET解除後はreadyの巡回確認を再開します。SPECIFYの値はRESETをまたいで保持します。
 
-MEDIA_LOCKとMEDIA_GENERATIONは基板の媒体管理用レジスタです。FDCのRESETでは変化しません。MEDIA_LOCKは、複数セクタにまたがるDOSの処理全体を保護します。世代番号は0から始まり、接続・交換・取り外しのたびに1増えます。FFFFFFFFに達したドライブの交換は拒否します。DOSは世代が変わるとキャッシュと現在位置を更新し、旧ハンドルを失効させます。
+上記以外のオフセットは未定義で、読出し・書込み・非破壊読出しのいずれもfaultになります。媒体交換用のロックや世代番号レジスタはありません。DOSによる交換検出はディレクトリのチェックサムで行います。
 
 MSRのビットは次のとおりです。
 
@@ -282,11 +280,11 @@ FORMAT後の位置、gap、rateが正規配置と厳密に一致する場合だ�
 
 IPLは[ipl.asm](../src/firmware/ipl/ipl.asm)を組み立てたROMです。CS=`0xFF`、PC=0から実行し、FDCのnon-DMA MMIOでstage2を読みます。
 ホストがstage2をRAMへ直接置く方式ではありません。drive0、500 kbps、MFM、80シリンダ×2面×18セクタ、N=2（512バイト）を使います。
-ヘッダはC0/H0/R1、payloadはR2～17の連続領域です。最大16セクタを使い、トラックはまたぎません。raw/D88の選択はホストが行い、IPLはファイル形式を認識しません。
+`yosic-mkimage`で作る標準KPB1媒体では、ヘッダはC0/H0/R1、payloadはR2～17の連続領域です。最大16セクタを使い、トラックはまたぎません。DOS用のFAT12媒体では、標準BPBを保つためKPB1拡張をセクタ0のbyte 64へ配置し、ヘッダに記録された位置からローダーを読みます。raw/D88の選択はホストが行い、IPLはファイル形式を認識しません。
 
 ### KPB1ヘッダ
 
-先頭セクタの32バイトは、little-endianの32ビットワード8個です。
+標準KPB1媒体の先頭セクタの32バイトは、little-endianの32ビットワード8個です。
 
 | byte位置 | フィールド・固定値 |
 |---|---|
@@ -299,7 +297,7 @@ IPLは[ipl.asm](../src/firmware/ipl/ipl.asm)を組み立てたROMです。CS=`0x
 | 24 | payloadのセクタ数。`ceil(バイト数/512)`、1～16 |
 | 28 | flags/reserved=0 |
 
-先頭セクタの残り480バイトは生成時0で埋め、IPLは予約域として無視します。
+標準KPB1媒体の先頭セクタの残り480バイトは生成時0で埋め、IPLは予約域として無視します。DOS用FAT12媒体の拡張はbyte 64からの48バイトで、先頭7ワードは上表と同じです。続く5ワードは512バイト単位のトラック長、payloadのLBA、シリンダ、ヘッド、セクタ番号です。1.44 MB媒体のトラック長は18、1.25 MB媒体は16で、DOSローダーはどちらもシリンダ1の先頭から配置します。
 payloadの最終セクタも0埋めします。checksumとRAMコピーの対象はpayload長だけです。checksumは偶発的な破損用で、暗号学的な認証ではありません。
 
 ### RAM配置と引渡し
@@ -324,7 +322,7 @@ stage2は先頭がentryです。サンプルは相対分岐を使い、必要な
 
 | 表示 | 意味 |
 |---|---|
-| `KAPPA IPL` | IPLが始まった |
+| `YOSIC-KAPPA INITIAL PROGRAM LOADER V1.0` | IPLが始まった |
 | `IPL: BOOT` | 検査に成功しstage2へ移る |
 | `IPL: NO DRIVE` | readyを確認できない |
 | `IPL: FDC ERROR` | FDCの結果が条件を満たさない |

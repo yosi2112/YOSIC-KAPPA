@@ -15,10 +15,11 @@ FDCはフロッピーディスクを制御する装置です。IPLは起動時�
 bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000
 ```
 
-実端末では最初にモニタの`-`プロンプトが出ます。`G`を入力するとゲストが動き始めます。次の3行が出れば、ディスクからstage2まで進んでいます。
+実端末では最初にモニタの`-`プロンプトが出ます。`G`を入力するとゲストが動き始めます。次の4行が出れば、ディスクからstage2まで進んでいます。
 
 ```text
-KAPPA IPL
+YOSIC-KAPPA INITIAL PROGRAM LOADER V1.0
+(C) 2026 YOSI2112
 IPL: BOOT
 STAGE2 OK
 ```
@@ -32,7 +33,7 @@ STAGE2 OK
 | `bin` | `yosic-sim.exe`（実行）、`yosic-as.exe`（組立て）、`yosic-mkimage.exe`（起動媒体の作成） |
 | `boot` | 生成済みのIPL ROM、stage2、起動媒体、リスティング、シンボルマップ |
 | `src/firmware` / `src/examples` | IPL、stage2、練習用プログラムのアセンブリソース |
-| `doc` | この4冊のマニュアル |
+| `doc` | エミュレータ、モニタ、アセンブラ、ハードウェア、DOSのマニュアル |
 | `.asm` | 人が書くプログラム |
 | `.rom` / `.bin` | CPUが読む命令やデータ。拡張子による内容検査はしない |
 | `.img` / `.d88` / `.kfd` | ディスクイメージ。実行時はこの拡張子で形式を選ぶ |
@@ -91,7 +92,7 @@ fc /b work\input.bin work\output.bin
 bin\yosic-sim.exe --rom work\echo.rom --interactive
 ```
 
-Ctrl+Zは1Ahとしてゲストへ渡します。LEDTでは挿入終了や検索・置換の区切りに使います。Ctrl+Cは実行停止です。`--input`と`--interactive`は併用できません。
+Ctrl+Zは1Ah、Ctrl+Cは03hとしてゲストへ渡します。DOSのプロンプトではCtrl+Cで媒体状態をリセットします。LEDTではCtrl+Zを挿入終了や検索・置換の区切りに使います。停止・終了にはCtrl+Breakでモニタへ戻って`Q`を使います。`--no-monitor`ではCtrl+Breakで終了します。`--input`と`--interactive`は併用できません。
 端末の文字コードは変換しません。バイト列を正確に確認する場合はファイル入力を使います。
 
 ## 5. ディスクを接続する
@@ -112,6 +113,7 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.img --geometry 80 2 18 2
 ```
 
 これも`STAGE2 OK`を表示します。D88とKFDには媒体情報があるため、読込みだけならgeometryは不要です。
+KAPPA-DOSのraw 1.25 MBイメージは512バイト論理ブロック列なので、`--geometry 77 2 16 2`を指定します。対応するD88は77×2×8個の1024バイト物理セクタを保持し、DOS向けの512バイトアクセスはFDCが半セクタ単位に変換します。
 複数枚を連結したD88では、`--disk-index UNIT INDEX`で使う1枚を選びます。INDEXは0始まり、既定は0です。
 
 ```bat
@@ -157,7 +159,7 @@ bin\yosic-mkimage.exe work\stage2.bin -o work\boot.d88
 bin\yosic-sim.exe --rom work\ipl.rom --disk 0 work\boot.d88 --steps 1000000 --dump 0x400 1
 ```
 
-元と同じ3行とRAMの値が出ます。自作stage2に置き換える場合も、先頭命令をRAM`0x2000`で実行できるようにします。
+元と同じ4行とRAMの値が出ます。自作stage2に置き換える場合も、先頭命令をRAM`0x2000`で実行できるようにします。
 payload（読み込むプログラム本体）は4～8192バイト、4バイトの倍数です。大きいstage2を有限実行で確認する場合は`--steps 6000000`を指定してください。通常実行では`--steps`を省略し、Ctrl+Cで停止します。
 引渡し状態やヘッダは[IPL契約](interface-reference.md#ipl契約)を参照してください。
 

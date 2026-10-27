@@ -16,7 +16,7 @@ out\build\yosic-sim.exe --rom out\build\boot\ipl.rom --disk 0 out\build\boot\boo
 
 実端末では最初にモニタの`-`プロンプトが表示されます。`G`を入力するとゲストを実行します。直接起動する場合は`--no-monitor`を追加してください。
 
-起動すると`KAPPA IPL` → `IPL: BOOT` → `STAGE2 OK`と表示されます。
+起動すると`YOSIC-KAPPA INITIAL PROGRAM LOADER V1.0` → `IPL: BOOT` → `STAGE2 OK`と表示されます。
 通常実行は命令上限なしです。この例では`--steps 1000000`で停止します。上限を省略した場合はCtrl+Cで停止できます。
 
 ## 実行用フォルダ

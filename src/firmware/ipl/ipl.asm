@@ -63,7 +63,8 @@ entry:  Const R10,0fe0000h
         ADD SP,SP,SP
         ADI R4,RZR,0e0h
         ADI R12,RZR,0c0h
-        Print "KAPPA IPL"
+        Print "YOSIC-KAPPA INITIAL PROGRAM LOADER V1.0"
+        Print "(C) 2026 YOSI2112"
         ADI R0,RZR,11h
         SRM R0,[R10+10ch]
         ADI R0,RZR,10h
@@ -236,6 +237,36 @@ copied:
         JMP header_check
         JMP payload_next
 header_check:
+        ; Normalize the original KPB1 header to the FAT12 extension layout.
+        ; yosic-mkimage places the header at byte 0 and payload at C0/H0/R2.
+        Const R1,3150424bh
+        LRM R0,[RZR+1800h]
+        SUB R0,R0,R1
+        SRZ R0
+        JMP extended_header
+        LRM R0,[RZR+181ch]
+        SRZ R0
+        JMP bad_header
+        ADI R0,RZR,1800h
+        ADI R1,RZR,1840h
+        ADI R2,RZR,8
+legacy_header_copy:
+        LRM R3,[R0]
+        SRM R3,[R1]
+        ADI R0,R0,4
+        ADI R1,R1,4
+        ADI R2,R2,-1
+        SRZ R2
+        JMP legacy_header_copy
+        ADI R0,RZR,18
+        SRM R0,[RZR+185ch]
+        ADI R0,RZR,1
+        SRM R0,[RZR+1860h]
+        SRM RZR,[RZR+1864h]
+        SRM RZR,[RZR+1868h]
+        ADI R0,RZR,2
+        SRM R0,[RZR+186ch]
+extended_header:
         Expect 64,3150424bh
         Expect 68,1
         Expect 76,2000h
@@ -289,7 +320,7 @@ count_done:
         ADI R11,RZR,0
         ADI R0,RZR,1
         SRM R0,[RZR+190ch]
-        ; The system file starts at the first sector of cylinder one.
+        ; Seek to the payload position selected by the header layout.
         Send 0fh
         Send 0
         LRM R3,[RZR+1900h]

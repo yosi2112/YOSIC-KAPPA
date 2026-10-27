@@ -11,20 +11,18 @@ foreach ($inputDirectory in @('src', 'doc')) {
         throw 'Export directory must be outside src/doc.'
     }
 }
+$paths = @(& git -C $root -c core.quotepath=false ls-files)
+if ($LASTEXITCODE -ne 0) { throw 'Source export requires a Git working tree.' }
 New-Item -ItemType Directory -Path $destinationPath | Out-Null
-foreach ($name in @('doc', 'src', 'readme.md', 'license')) {
-    $source = Join-Path $root $name
-    $files = if (Test-Path -LiteralPath $source -PathType Container) {
-        Get-ChildItem -LiteralPath $source -Recurse -File -Force
-    } else { Get-Item -LiteralPath $source }
-    foreach ($file in $files) {
-        $relative = $file.FullName.Substring($root.Length + 1).Replace('\', '/')
-        if ($relative -match '(^|/)(\.git|\.codex|\.agents|__pycache__|CMakeFiles|CMakeCache\.txt|build-tools\.md|Agents\.md|plan|resume|out|PLDULL|tests?|local-tests)(/|$)' -or
-            $relative -match '\.(exe|obj|pdb|lib|zip|pyc|bin|rom|img|d88|kfd|yke|map|lst)$' -or
-            ($relative -match '^src/' -and $relative -match '\.md$')) { continue }
-        $target = Join-Path $destinationPath $relative
-        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
-        Copy-Item -LiteralPath $file.FullName -Destination $target
-    }
+foreach ($relative in $paths) {
+    if ($relative -notmatch '^(doc/|src/|readme\.md$|license$)') { continue }
+    if ($relative -match '(^|/)(\.git|\.codex|\.agents|__pycache__|CMakeFiles|CMakeCache\.txt|build-tools\.md|Agents\.md|plan|resume|out|PLDULL|tests?|local-tests)(/|$)' -or
+        $relative -match '\.(exe|obj|pdb|lib|zip|pyc|bin|rom|img|d88|kfd|yke|map|lst)$' -or
+        ($relative -match '^src/' -and $relative -match '\.md$')) { continue }
+    $source = Join-Path $root $relative
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { continue }
+    $target = Join-Path $destinationPath $relative
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+    Copy-Item -LiteralPath $source -Destination $target
 }
 & (Join-Path $PSScriptRoot 'check-public-tree.ps1') -Root $destinationPath
