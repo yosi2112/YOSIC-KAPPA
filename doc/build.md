@@ -4,7 +4,7 @@
 
 ## 1. 開発環境と作業場所
 
-Windows x64、C++20対応MSVC、CMake 3.25以上、Ninjaが必要です。Visual StudioのC++開発環境を推奨します。DOS媒体の生成とPythonテストにはPython 3も必要です。外部C++ライブラリは使用しません。
+Windows x64、C++20対応MSVC、CMake 3.25以上、Ninja、Python 3が必要です。Visual StudioのC++開発環境を推奨します。DOS媒体の生成とPythonテストにはPython 3も必要です。外部C++ライブラリは使用しません。
 
 以下は`src`、`doc`、`readme.md`があるソース一式のルートで実行します。「Visual Studioのx64 Developer Command Prompt」を開いてください。`cl`、`cmake`、`ninja`が見つからない場合は、VSのC++ツールとCMakeツール、開発環境のPATHを確認します。
 
@@ -18,7 +18,7 @@ cmake -S src -B out/build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build out/build
 ```
 
-`out/build`に`yosic-sim.exe`、`yosic-as.exe`、`yosic-mkimage.exe`を出力します。通常ビルドで`boot-images`も作り、`out/build/boot`にIPL ROM、stage2、起動媒体、リスティング、マップを配置します。Debug構成は`-DCMAKE_BUILD_TYPE=Debug`で選択します。
+`out/build`に`yosic-sim.exe`、`yosic-as.exe`、`yosic-mkimage.exe`を出力します。通常ビルドで`boot-images`と`dos-images`も作り、`out/build/boot`にIPL ROM、stage2、起動媒体、リスティング、マップを配置します。Debug構成は`-DCMAKE_BUILD_TYPE=Debug`で選択します。
 
 実行用フォルダを作成する場合は次を実行します。
 
@@ -26,7 +26,7 @@ cmake --build out/build
 cmake --install out/build --prefix out/portable
 ```
 
-`bin`に実行ファイル、`boot`に起動媒体、`doc`にマニュアル、`src`にファームウェア・実行例・DOSソースを配置します。配置ファイルのSHA-256一覧は`SHA256SUMS.txt`です。構成は[`install.cmake`](../src/tools/distribution/install.cmake)で定義します。
+`bin`に実行ファイル、`boot`にIPL診断媒体、`dos`に5コマンド入りDOSシステム媒体、`doc`にマニュアル、`src`にファームウェア・実行例・DOSソースを配置します。配置ファイルのSHA-256一覧は`SHA256SUMS.txt`です。構成は[`install.cmake`](../src/tools/distribution/install.cmake)で定義します。
 
 ## 3. IPLとstage2の起動確認
 
@@ -162,3 +162,13 @@ VSのx64開発環境で`chcp 65001`を実行した後、PowerShellから実行�
 アプリは最初のJMPの後に共通ライブラリをINCLUDEし、入口で`TrInit`を実行します。`TrCall`の呼出先は`tr_return`で復帰します。R6・R8〜R13とSPを保持し、R0〜R5・R7は作業用です。DS/SS/ESは0、R12は`0x88000`、スタックは`0xE0000`〜`0xEFFFF`とします。文字・転送データは1バイトを1語で表します。各関数の引数と上限はソース先頭および関数直前に記載しています。公開ABIは既存の番号だけを使用します。
 
 内部block-device記述子は容量とLBAを下位/上位32ビットで保持し、物理セクタ長とDOSの512バイト論理セクタ長を分けます。現在のバックエンドはFDだけです。HDなど未対応のkindはMMIO操作前にエラー50を返します。FDCの停止は中断後のidle復帰であり、すでに行った書込みを元に戻す処理ではありません。
+
+## 8. DOS媒体を含む配布
+
+通常のCMakeビルドは`out/build/dos`に両FDプロファイルのRAW/D88を生成します。`dos-images`は毎回ソースから5コマンドを組み直し、古いYKE出力を収録しません。Pythonの場所を明示する場合は、CMake構成時に`-DPython3_EXECUTABLE=C:/Python312/python.exe`を指定します。DOS用PowerShellの呼出しに限りプロセス単位で実行ポリシーを設定します。
+
+単独のDOSビルドは従来どおり`out/dos`を使用します。`-OutputDirectory <出力先>`で別の場所へ生成できます。CMakeはこの指定で構成ごとの出力先を分けます。インストール前に通常ビルドを完了してください。必要な媒体が欠けている場合、インストールは失敗します。
+
+実行用フォルダには`dos/dos.d88`、`dos/dos.img`、`dos/dos-1.25.d88`、`dos/dos-1.25.img`を収録します。各媒体はFORMAT、DISKCOPY、SUBMIT、DULL、LEDTを含みます。使用例とSYSの役割は[システム媒体と連携操作](dos/system-media.md)を参照してください。配布後のDOS実行やDULLコンパイルにホストのPythonは不要です。
+
+ソース書出しと実行用フォルダへのソース配置では、ローカル計画、再開記録、テスト、Agents.md、生成物、原典調査用のPLDULLフォルダを除外します。`export-source.ps1`は作業中の製品ソースを新規フォルダへ書き出し、公開対象検査を行います。公開Git候補の検査も、生成媒体やこれらの私用ファイルの混入を拒否します。

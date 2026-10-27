@@ -5,7 +5,7 @@
 
 ## ビルドと起動
 
-Visual Studioのx64 Developer Command Promptで、リポジトリのルートから実行します。C++20、CMake、Ninjaが必要です。
+Visual Studioのx64 Developer Command Promptで、リポジトリのルートから実行します。C++20、CMake、Ninja、Python 3が必要です。
 
 ```bat
 chcp 65001
@@ -45,3 +45,13 @@ bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 boot\boot.d88 --steps 1000000
 - [ビルド・開発用マニュアル](doc/build.md)：ソースからのビルドと開発作業
 
 ライセンスは[MIT](license)です。
+
+## DOSシステム媒体
+
+通常ビルドは`out/build/dos`へ、実行用フォルダへの配置は`dos`へ、1.44 MBと1.25 MBのDOSシステム媒体を用意します。FORMAT、DISKCOPY、SUBMIT、DULL、LEDTの5コマンドを収録しています。
+
+```bat
+bin\yosic-sim.exe --rom boot\ipl.rom --disk 0 dos\dos.d88 --interactive --no-monitor
+```
+
+書込み結果を保持するには、媒体の作業用コピーを用意し、`--disk-copy 0 <保存先.d88>`を指定します。編集から一括コンパイル・実行までの手順は[システム媒体と連携操作](doc/dos/system-media.md)、言語仕様は[PL/DULL説明書](doc/dos/pldull.md)を参照してください。

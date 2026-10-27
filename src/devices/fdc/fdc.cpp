@@ -412,17 +412,15 @@ void Fdc::find_sector() {
                 if (s.id[1] != id_[1])
                     continue;
                 const bool exact = s.id[2] == id_[2] && s.id[3] == id_[3];
-                const bool half_sector = id_[3] == 2 && s.id[3] == 3 &&
-                                         s.data.size() == 1024 &&
-                                         static_cast<unsigned>(s.id[2]) ==
-                                             (static_cast<unsigned>(id_[2]) + 1u) / 2u &&
-                                         id_[2] >= 1 && id_[2] <= 16;
+                const bool half_sector =
+                    id_[3] == 2 && s.id[3] == 3 && s.data.size() == 1024 &&
+                    static_cast<unsigned>(s.id[2]) == (static_cast<unsigned>(id_[2]) + 1u) / 2u &&
+                    id_[2] >= 1 && id_[2] <= 16;
                 if (!exact && !half_sector)
                     continue;
             }
-            const auto selected_offset = s.id[3] == 3 && id_[3] == 2
-                                             ? static_cast<std::size_t>((id_[2] - 1) % 2) * 512
-                                             : 0;
+            const auto selected_offset =
+                s.id[3] == 3 && id_[3] == 2 ? static_cast<std::size_t>((id_[2] - 1) % 2) * 512 : 0;
             auto delay = d.delay(head_, i, clock_.now());
             if (selected_offset) {
                 delay = (delay + byte_time() * selected_offset) % rev;

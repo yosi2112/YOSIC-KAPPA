@@ -20,9 +20,9 @@ if (($top -join '|') -cne (($allowed | Sort-Object) -join '|')) {
     throw "Public root must contain exactly doc/src/readme.md/license; found: $($top -join ', ')"
 }
 foreach ($path in $paths) {
-    if ($path -match '(^|/)(\.git|\.codex|\.agents|__pycache__|CMakeFiles|CMakeCache\.txt|build-tools\.md|Agents\.md)(/|$)' -or
+    if ($path -match '(^|/)(\.git|\.codex|\.agents|__pycache__|CMakeFiles|CMakeCache\.txt|build-tools\.md|Agents\.md|plan|resume|out|PLDULL)(/|$)' -or
         $path -match '(^|/)(tests?|local-tests)(/|$)' -or
-        $path -match '\.(exe|obj|pdb|lib|zip|pyc)$' -or
+        $path -match '\.(exe|obj|pdb|lib|zip|pyc|bin|rom|img|d88|kfd|yke|map|lst)$' -or
         ($path -match '^src/' -and $path -match '\.md$')) {
         throw "Private, generated or misplaced documentation file: $path"
     }

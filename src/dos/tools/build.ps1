@@ -1,8 +1,8 @@
-param([string]$ToolDirectory = '', [string]$PythonPath = '', [string]$TransientSourceDirectory = '')
+param([string]$ToolDirectory = '', [string]$PythonPath = '', [string]$TransientSourceDirectory = '', [string]$OutputDirectory = '')
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $src = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$out = Join-Path $root 'out/dos'
+$out = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $root 'out/dos' }
 if (-not $ToolDirectory) { $ToolDirectory = Join-Path $root 'out/build' }
 if (-not $TransientSourceDirectory) { $TransientSourceDirectory = Join-Path $src 'transients' }
 $assembler = Join-Path $ToolDirectory 'yosic-as.exe'
