@@ -46,6 +46,11 @@ DULL HELLO.DUL HELLO.LST /L
 組込み呼出し = WRITE [ "(" 引数 { "," 引数 } ")" ]
              | WRITELN [ "(" 引数 { "," 引数 } ")" ]
              | GET | BREAK | CONTINUE
+             | FOPEN "(" 文字列 "," 式 ")"
+             | FCLOSE "(" 式 ")" | FGETC "(" 式 ")"
+             | FPUTC "(" 式 "," 式 ")" | FEOF "(" 式 ")"
+             | FWRITE "(" 式 { "," 引数 } ")"
+             | FWRITELN "(" 式 { "," 引数 } ")" | IORESULT
 引数       = 式 | 文字列
 ```
 
@@ -61,7 +66,7 @@ DULL HELLO.DUL HELLO.LST /L
 
 ## コンソール入出力
 
-`WRITE`は文字列と整数を順に表示し、`WRITELN`は最後にCRLFを表示します。区切りの空白は自動挿入しません。文字列は出力引数でだけ使えます。両命令を式として書いた場合の結果は0です。
+`WRITE`は文字列と整数を順に表示し、`WRITELN`は最後にCRLFを表示します。区切りの空白は自動挿入しません。両命令を式として書いた場合の結果は0です。文字列はこれらの表示引数、FWRITE/FWRITELNの表示引数、FOPENのパスで使えます。文字列変数や文字列を一般の式に使う機能はありません。
 
 `GET`は数字・Backspace・Enterで編集する整数入力です。1桁以上入力してEnterを押すと値を返します。符号や他のキーは無視します。255桁まで入力でき、値は16bitに折り返します。Backspaceは折返し前も含めて入力した接頭辞の値へ戻ります。CR、LF、CRLFと連続したGETを扱います。
 
@@ -147,6 +152,82 @@ end.
 
 3を入力すると7回の移動を表示します。この例は関数の戻り値を使用しないため、`RESULT`へ代入していません。
 
+## ファイル操作
+
+以下はKAPPA版の拡張予約語です。変数名・関数名・仮引数名には使えません。各呼出しは単独文と式の両方で使えます。引数は左から右へ評価します。
+
+| 呼出し | 結果 |
+|---|---|
+| `FOPEN("path",mode)` | 成功はハンドル1〜8、失敗は0 |
+| `FCLOSE(handle)` | 成功0、失敗はDOSエラー番号 |
+| `FGETC(handle)` | 1バイトの0〜255、EOFまたは失敗は-1 |
+| `FPUTC(handle,value)` | 1バイトを書込み、成功0、失敗はDOSエラー番号 |
+| `FWRITE(handle [,値または文字列...])` | 連結して書込み、成功0、失敗はDOSエラー番号 |
+| `FWRITELN(handle [,値または文字列...])` | FWRITEの後にCRLFを書込む。結果は同じ |
+| `FEOF(handle)` | 直前までにEOFへ到達した有効ハンドルなら1、それ以外0 |
+| `IORESULT` | 最後のファイル操作のDOSエラー番号。括弧なし |
+
+パスは最大63バイトの文字列リテラルで、DOSの8.3形式・番号ドライブ規約に従います。動的パス、削除・名前変更・SEEKはありません。`mode`は式で指定し、0=既存読取り、1=作成または既存内容の切詰め書込み、2=既存読書きです。どのモードも先頭位置から開始します。**モード2は追記ではなく**、読み終えた位置から書くとその部分を上書きします。
+
+`FGETC`はNUL、1Ah、FFhも通常のデータとして返します。成功したREADの転送量が0の場合だけ通常EOFとし、`FGETC=-1`、`FEOF=1`、`IORESULT=0`になります。READ失敗では`FGETC=-1`、`IORESULT`にエラーを記録し、EOF状態を新しく立てません。OPEN成功、1バイト取得、WRITE成功でEOF状態を0へ戻します。
+
+`IORESULT`の初期値は0で、成功または通常EOFで0になります。参照しても値は消えません。有効な`FEOF`照会も値を変更しません。無効・解放済みハンドルの照会は0を返し、`IORESULT=6`になります。二重CLOSEや1〜8以外のハンドルもエラー6です。媒体交換でDOSがエラー6を返したハンドルはランタイムでも失効します。開けるファイルは同時8個までで、同じファイルの重複OPENはDOSの規則に従って失敗します。
+
+`FPUTC`の値は0〜255に限定し、範囲外は87です。`FWRITE`系の整数は符号付き十進表記で、空白は自動挿入しません。`FWRITE(h)`は空出力、`FWRITELN(h)`は改行だけです。最初の失敗または短いWRITEで処理を止め、後続引数を評価せず、残りの文字と改行も出力しません。既に書いた部分は残ります。容量不足または成功扱いの短いWRITEは112として報告します。
+
+ファイルエラーは自動終了せず、呼出し元が戻り値と`IORESULT`で処理します。正常終了と実行時エラーのどちらでも、ランタイムが開いたハンドルを解放します。この終了処理は直前の`IORESULT`を上書きしません。ファイル処理は既存のOPEN/CLOSE/READ/WRITE（20h〜23h）だけを使い、生成YKE内のランタイムがDOS指定のword-byteバッファへ変換します。
+
+### バイナリコピー
+
+DOSの正規化後のパスも63文字以内である必要があります。相対パスはカレントディレクトリと先頭の`\`を含めて判定されるため、リテラル自体が63バイトでもエラー206になる場合があります。存在しないファイルのOPENでは、DOSが返すエラー3をそのまま`IORESULT`へ記録します。
+
+同じファイルを入力と出力に指定しないでください。以下はドライブ1の全バイトをコピーし、READ失敗と通常EOFを区別する例です。
+
+```text
+program;
+var src,dst,ch;
+begin
+    src := fopen("1:\INPUT.BIN",0);
+    if src = 0 then writeln("OPEN ERROR ",ioresult)
+    else
+    begin
+        dst := fopen("1:\OUTPUT.BIN",1);
+        if dst = 0 then writeln("CREATE ERROR ",ioresult)
+        else
+        begin
+            ch := fgetc(src);
+            while ch >= 0 do
+            begin
+                if fputc(dst,ch) <> 0 then break;
+                ch := fgetc(src);
+            end;
+            if ioresult <> 0 then writeln("COPY ERROR ",ioresult);
+            fclose(dst);
+        end;
+        fclose(src);
+    end;
+end.
+```
+
+### 文字列と数値の保存
+
+```text
+program;
+var h;
+begin
+    h := fopen("RESULT.TXT",1);
+    if h = 0 then writeln("OPEN ERROR ",ioresult)
+    else
+    begin
+        if fwriteln(h,"value=",-123," next=",32767) <> 0 then
+            writeln("WRITE ERROR ",ioresult);
+        fclose(h);
+    end;
+end.
+```
+
+成功時の内容は`value=-123 next=32767`とCRLFです。
+
 ## 容量と診断
 
 | 対象 | 上限 |
@@ -180,4 +261,4 @@ end.
 
 原典の字句解析と再帰下降解析をKAPPA ASMへ移し、8086 COMのemit/patchをKAPPA機械語とYKE1へ置き換えています。関数フレーム、文字列、整数入出力、ランタイムを生成物へ含め、既存のDOSコンソール・ファイルAPIだけを使います。
 
-単項負号を識別子・括弧式・関数にも適用する原典実装の挙動を引き継ぎます。負数除算時の原典の符号拡張不備は修正し、エラー後の不完全な出力は公開しません。ファイル操作の言語拡張は別工程であり、この版には含みません。
+単項負号を識別子・括弧式・関数にも適用する原典実装の挙動を引き継ぎます。負数除算時の原典の符号拡張不備は修正し、エラー後の不完全な出力は公開しません。上記のF系ファイル操作とIORESULTはKAPPA版の独自拡張です。

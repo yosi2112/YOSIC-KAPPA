@@ -532,6 +532,9 @@ d_parameter:
 d_syntax:
         DAddr R2,d_syntax_message
         JMP d_fatal
+d_reserved:
+        DAddr R2,d_reserved_message
+        JMP d_fatal
 d_string_error:
         DAddr R2,d_string_message
         JMP d_fatal
@@ -600,6 +603,7 @@ d_error_prefix: DD 68,85,76,76,32,108,105,110,101,32,0
 d_colon: DD 58,32,0
 d_crlf: DD 13,10,0
 d_syntax_message: DD 115,121,110,116,97,120,32,101,114,114,111,114,0
+d_reserved_message: DD 114,101,115,101,114,118,101,100,32,105,100,101,110,116,105,102,105,101,114,0
 d_parameter_message: DD 105,110,118,97,108,105,100,32,112,97,114,97,109,101,116,101,114,0
 d_string_message: DD 117,110,116,101,114,109,105,110,97,116,101,100,32,115,116,114,105,110,103,0
 d_limit_message: DD 99,97,112,97,99,105,116,121,32,108,105,109,105,116,0

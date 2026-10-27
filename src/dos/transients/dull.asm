@@ -5,6 +5,7 @@
         INCLUDE dull.inc
         INCLUDE dull-emit.inc
         INCLUDE dull-parse.inc
+        INCLUDE dull-files.inc
         INCLUDE dull-io.inc
         INCLUDE dull-runtime.inc
         END

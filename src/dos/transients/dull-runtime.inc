@@ -42,10 +42,18 @@ rt_zero_globals:
         JMP rt_zero_globals
         ADI R10,RZR,0
         RtConst R13,0d0400h
-        SRM RZR,[R13]
+        ADD R3,R13,RZR
+        ADI R4,RZR,96
+rt_zero_files:
+        SRM RZR,[R3]
+        ADI R3,R3,4
+        ADI R4,R4,-1
+        SRZ R4
+        JMP rt_zero_files
 rt_main_jump:
         JMP rt_main_jump
 rt_finish:
+        RtCall rt_file_cleanup
         ADI R2,RZR,0
         RtSys DOS_EXIT
 rt_putchar:
@@ -367,10 +375,12 @@ rt_io_error:
         ADI R8,RZR,5
 rt_fatal:
         RtSys DOS_PUTS
+        RtCall rt_file_cleanup
         ADD R2,R8,RZR
         RtSys DOS_EXIT
 rt_zero_message: DD 68,85,76,76,58,32,100,105,118,105,100,101,32,98,121,32,122,101,114,111,13,10,0
 rt_overflow_message: DD 68,85,76,76,58,32,100,105,118,105,100,101,32,111,118,101,114,102,108,111,119,13,10,0
 rt_stack_message: DD 68,85,76,76,58,32,115,116,97,99,107,32,108,105,109,105,116,13,10,0
 rt_io_message: DD 68,85,76,76,58,32,99,111,110,115,111,108,101,32,101,114,114,111,114,13,10,0
+        INCLUDE dull-file-runtime.inc
 rt_end:

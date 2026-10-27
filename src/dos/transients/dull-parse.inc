@@ -178,6 +178,11 @@ d_statement:
         DEq R8,T_GET,d_statement_builtin
         DEq R8,T_CONTINUE,d_statement_builtin
         DEq R8,T_BREAK,d_statement_builtin
+        ADI R2,RZR,T_FOPEN
+        DLt R8,R2,d_statement_empty
+        ADI R2,RZR,T_IORESULT+1
+        DLt R8,R2,d_statement_builtin
+d_statement_empty:
         ; Empty statements are valid only at actual statement delimiters.
         DEq R8,59,d_statement_done
         DEq R8,T_END,d_statement_done
@@ -386,6 +391,11 @@ d_factor_kind:
         DEq R2,T_WRITELN,d_factor_builtin
         DEq R2,T_BREAK,d_factor_builtin
         DEq R2,T_CONTINUE,d_factor_builtin
+        ADI R3,RZR,T_FOPEN
+        DLt R2,R3,d_factor_invalid
+        ADI R3,RZR,T_IORESULT+1
+        DLt R2,R3,d_factor_builtin
+d_factor_invalid:
         JMP d_syntax
 d_factor_builtin:
         TrCall d_builtin
@@ -455,6 +465,11 @@ d_user_call_emit:
 d_builtin:
         DBegin
         DGet R8,d_token
+        ADI R2,RZR,T_FOPEN
+        DLt R8,R2,d_builtin_original
+        TrCall d_file_builtin
+        JMP d_return
+d_builtin_original:
         TrCall d_next
         DEq R8,T_GET,d_builtin_get
         DEq R8,T_CONTINUE,d_builtin_continue
